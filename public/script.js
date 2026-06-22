@@ -2618,6 +2618,10 @@ let prevRunningIds = localStorage.getItem("lastRunningIds") || "";
 let prevClosedIds = localStorage.getItem("lastClosedIds") || "";
 
 function checkSignalChanges(running, closed) {
+  // Ambil data terbaru dari localStorage setiap kali
+  const prevRunningIds = localStorage.getItem("lastRunningIds") || "";
+  const prevClosedIds = localStorage.getItem("lastClosedIds") || "";
+
   const currentRunningIds = running
     .map((s) => `${s.stockCode}-${s.signalDate}`)
     .sort()
@@ -2639,7 +2643,6 @@ function checkSignalChanges(running, closed) {
     const newSignals = running.filter((s) =>
       newRunning.includes(`${s.stockCode}-${s.signalDate}`),
     );
-    // Kirim notifikasi per saham
     newSignals.forEach((s) => {
       const signalType = s.signalType || "WATCHLIST";
       let emoji = "📊";
@@ -2649,7 +2652,6 @@ function checkSignalChanges(running, closed) {
       else if (signalType.toUpperCase().includes("STRONG SELL")) emoji = "🔻";
       const msg = `${emoji} ${s.stockCode} - ${signalType}`;
       sendNotification("🔔 Today's Signals", msg);
-      // Simpan ke history
       addNotification("🔔 Today's Signals", msg, "signal");
     });
   }
@@ -2672,11 +2674,12 @@ function checkSignalChanges(running, closed) {
       const emoji = status === "TP" ? "✅" : "❌";
       const title = status === "TP" ? "Take Profit" : "Stop Loss";
       const msg = `${emoji} ${s.stockCode} ${title} ${sign}${ret.toFixed(2)}%`;
-      sendNotification("💹 Signal Closed", msg);
-      addNotification("💹 Signal Closed", msg, "closed");
+      sendNotification("Signal Closed", msg);
+      addNotification("Signal Closed", msg, "closed");
     });
   }
 
+  // === PASTIKAN LANGUSNG DISIMPAN KE LOCALSTORAGE ===
   localStorage.setItem("lastRunningIds", currentRunningIds);
   localStorage.setItem("lastClosedIds", currentClosedIds);
 }
