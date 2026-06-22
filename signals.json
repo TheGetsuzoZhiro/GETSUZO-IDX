@@ -1,0 +1,1692 @@
+[
+  {
+    "stockCode": "HEAL",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 5,
+    "confidenceDetails": [
+      "+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]",
+      "+2 Foreign in top3 buyers (BK) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 885,
+    "tp1": 930,
+    "sl": 840,
+    "slModerat": 841,
+    "slKonservatif": 858,
+    "macd": 12.66,
+    "macdSignal": 11.37,
+    "rsi": 54.59,
+    "ema20": 878,
+    "ema50": 863,
+    "vwap": 885,
+    "adx": 48.83,
+    "bbLow": 838,
+    "bbHigh": 914,
+    "atr": 21,
+    "patternChart": "Uptrend Recovery dari Bottom + Higher Highs",
+    "patternCandle": "Bullish Continuation dengan Pullback Minor",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 680,
+    "foreignNet": -5305200,
+    "foreignPartisipasi": 92,
+    "beta": 0.37,
+    "volatilitas": 39,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 201117
+      },
+      {
+        "code": "ZP",
+        "lot": 105246
+      },
+      {
+        "code": "BK",
+        "lot": 56376
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 422705
+      },
+      {
+        "code": "XC",
+        "lot": 2685
+      },
+      {
+        "code": "GR",
+        "lot": 2336
+      }
+    ],
+    "analystOpinion": "HEAL menunjukkan pemulihan kuat dari bottom ~760 ke 920 pada 60m chart dengan ADX 48.83 mengindikasikan tren kuat, namun daily macro masih dalam downtrend panjang dari 1400 sehingga perlu konfirmasi breakout di atas 920. Sentimen positif dari insider buying direksi Hermina (5+ juta saham dalam 2 hari) menjadi katalis bullish yang signifikan, pantau entry jika harga bertahan di atas EMA20 885.",
+    "relatedNews": [
+      "Rekomendasi Saham Ajaib Sekuritas Hari Ini (EMAS, HEAL, ADRO) - Ajaib",
+      "Hasmoro kembali borong 1,03 juta saham Hermina - IDNFinancials.com",
+      "Direksi Hermina Serok 5,08 Juta Saham HEAL dalam 2 Hari Perdagangan. Sinyal A..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:03:11",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 885,
+    "currentLow": 875
+  },
+  {
+    "stockCode": "DSSA",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 6,
+    "confidenceDetails": [
+      "-2 Danger Buyer: MG(Semesta Indovest Sekuritas) [46-54% WR]",
+      "+2 Foreign in top3 buyers (AK) [93.5% WR]"
+    ],
+    "entryPrice": 850,
+    "tp1": 880,
+    "sl": 800,
+    "slModerat": 808,
+    "slKonservatif": 824,
+    "macd": 15.9,
+    "macdSignal": 8.09,
+    "rsi": 63.19,
+    "ema20": 799,
+    "ema50": 763,
+    "vwap": 826,
+    "adx": 23.69,
+    "bbLow": 720,
+    "bbHigh": 848,
+    "atr": 32,
+    "patternChart": "Recovery Bounce dari Bottom + Higher Low Structure",
+    "patternCandle": "Bullish Momentum dengan Upper Bollinger Band Resistance",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": null,
+    "foreignNet": -554624800,
+    "foreignPartisipasi": 43,
+    "beta": 1.83,
+    "volatilitas": 114,
+    "topBuyers": [
+      {
+        "code": "MG",
+        "lot": 2300000
+      },
+      {
+        "code": "SS",
+        "lot": 1300000
+      },
+      {
+        "code": "AK",
+        "lot": 1100000
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "ZP",
+        "lot": 10500000
+      },
+      {
+        "code": "RX",
+        "lot": 382677
+      },
+      {
+        "code": "XL",
+        "lot": 271405
+      }
+    ],
+    "analystOpinion": "DSSA menunjukkan recovery kuat dari bottom ~450 (Mei) dengan struktur higher low di timeframe harian, namun harga saat ini menyentuh upper Bollinger Band (848) yang berpotensi menjadi resistensi jangka pendek. Sentimen negatif dari net sell asing Rp904M dan aksi broker ZP melepas Rp1T menjadi risiko tambahan, sehingga tunggu konfirmasi breakout di atas 860 sebelum entry agresif.",
+    "relatedNews": [
+      "Gerak Liar Saham DSSA saat Broker ZP Lepas Rp1 Triliun Sepekan - KabarBursa.com",
+      "Investor asing catat net sell Rp 904 M sepekan, DSSA dan AMMN terbanyak dijua...",
+      "Nasib Saham DSSA Grup Sinar Mas, Masih Ada Harapan? - Halaman 2 - investor.id"
+    ],
+    "status": "TP",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": "2026-06-22 10:10:48",
+    "exitPrice": 880,
+    "returnPercent": 3.5294117647058822,
+    "holdingDays": 0
+  },
+  {
+    "stockCode": "UNVR",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 6,
+    "confidenceDetails": [
+      "+1 Good Buyer: YU(CGS International Sekuritas) [70-80% WR]",
+      "+2 Foreign in top3 buyers (BK,KZ) [93.5% WR]",
+      "+1 Multi-Foreign (3x in top5)"
+    ],
+    "entryPrice": 1685,
+    "tp1": 1760,
+    "sl": 1595,
+    "slModerat": 1601,
+    "slKonservatif": 1634,
+    "macd": 3.88,
+    "macdSignal": 3.04,
+    "rsi": 59.67,
+    "ema20": 1658,
+    "ema50": 1650,
+    "vwap": 1675,
+    "adx": 26.04,
+    "bbLow": 1631,
+    "bbHigh": 1688,
+    "atr": 26,
+    "patternChart": "Uptrend Recovery dari Low 1400 + Resistance Bollinger Upper Band",
+    "patternCandle": "Bullish Momentum dengan Upper Wick Panjang (Shooting Star area)",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 504,
+    "foreignNet": 1788200,
+    "foreignPartisipasi": 81,
+    "beta": 0.56,
+    "volatilitas": 50,
+    "topBuyers": [
+      {
+        "code": "YU",
+        "lot": 296174
+      },
+      {
+        "code": "BK",
+        "lot": 74717
+      },
+      {
+        "code": "KZ",
+        "lot": 51187
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 235252
+      },
+      {
+        "code": "CC",
+        "lot": 93952
+      },
+      {
+        "code": "RX",
+        "lot": 48695
+      }
+    ],
+    "analystOpinion": "UNVR menunjukkan pemulihan kuat dari low 1400 ke area 1685 dengan RSI 59.67 dan MACD positif, namun harga mendekati upper Bollinger Band (1688) yang berpotensi menjadi resistance jangka pendek. Sentimen positif dari dividen besar (Rp114/saham, total Rp4.32T) bisa menjadi catalyst, namun waspadai efek 'sell the news' pasca cum date dan IHSG yang sedang tertekan.",
+    "relatedNews": [
+      "UNVR Bagikan Dividen Penuh, Tunjukkan Disiplin dan Ketangguhan Bisnis - Unile...",
+      "UNVR Bagi Dividen Rp 4,32 T: Rp 114 per Saham - maybanktrade.co.id",
+      "Dividen UNVR melonjak dua kali lipat usai lepas es krim dan Sariwangi - IDNFi..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 1685,
+    "currentLow": 1680
+  },
+  {
+    "stockCode": "TOWR",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 10,
+    "confidenceDetails": [
+      "+1 Good Buyer: SQ(BCA Sekuritas) [70-80% WR]",
+      "+2 Foreign in top3 buyers (KZ) [93.5% WR]"
+    ],
+    "entryPrice": 372,
+    "tp1": 390,
+    "sl": 352,
+    "slModerat": 353,
+    "slKonservatif": 361,
+    "macd": 2.97,
+    "macdSignal": 7.25,
+    "rsi": 45.62,
+    "ema20": 381,
+    "ema50": 369,
+    "vwap": 379,
+    "adx": 40.77,
+    "bbLow": 371,
+    "bbHigh": 404,
+    "atr": 10,
+    "patternChart": "Pullback ke EMA50 setelah uptrend 60m, macro downtrend harian",
+    "patternCandle": "Bearish momentum dengan lower closes di 60m",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": null,
+    "foreignNet": -97694400,
+    "foreignPartisipasi": 70,
+    "beta": 0.8,
+    "volatilitas": 44,
+    "topBuyers": [
+      {
+        "code": "SQ",
+        "lot": 508802
+      },
+      {
+        "code": "NI",
+        "lot": 73899
+      },
+      {
+        "code": "KZ",
+        "lot": 73365
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 689026
+      },
+      {
+        "code": "CC",
+        "lot": 157899
+      },
+      {
+        "code": "BK",
+        "lot": 129766
+      }
+    ],
+    "analystOpinion": "TOWR sedang pullback ke area EMA50 (369) di timeframe 60m setelah rally kuat dari 310 ke 405, namun MACD histogram negatif (-4.28) dan harga di bawah EMA20 (381) menunjukkan momentum masih lemah. Sentimen positif dari program buyback Rp300 miliar bisa menjadi katalis pembalikan, namun tunggu konfirmasi penutupan di atas 380 sebelum entry.",
+    "relatedNews": [
+      "Rekomendasi Saham Tim Analis Bareksa: BULL, BRMS, dan TOWR, IHSG Diprediksi M...",
+      "Saham Djarum Ditaksir Naik 185%, Profitabilitas Lagi Meledak - investor.id",
+      "IHSG Turun 0,73% ke 6.127 Sesi I, Top Losers LQ45: TLKM, TOWR, AMMN, Jumat (1..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 372,
+    "currentLow": 370
+  },
+  {
+    "stockCode": "ICBP",
+    "signalType": "BUY",
+    "confidenceScore": 10,
+    "confidenceDetails": [
+      "+1 Good Buyer: ZP(Maybank Sekuritas) [70-80% WR]",
+      "+2 Foreign in top3 buyers (KZ) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 6700,
+    "tp1": 7000,
+    "sl": 6350,
+    "slModerat": 6365,
+    "slKonservatif": 6499,
+    "macd": 58.45,
+    "macdSignal": 55.82,
+    "rsi": 60.09,
+    "ema20": 6615,
+    "ema50": 6539,
+    "vwap": 6668,
+    "adx": 30.09,
+    "bbLow": 6506,
+    "bbHigh": 6732,
+    "atr": 96,
+    "patternChart": "Uptrend Recovery dari Bottom + Resistance Bollinger Upper",
+    "patternCandle": "Bullish Momentum dengan Higher Highs di 60m",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 92,
+    "foreignNet": 1370200,
+    "foreignPartisipasi": 82,
+    "beta": 0.6,
+    "volatilitas": 34,
+    "topBuyers": [
+      {
+        "code": "ZP",
+        "lot": 68807
+      },
+      {
+        "code": "KZ",
+        "lot": 18000
+      },
+      {
+        "code": "RF",
+        "lot": 2827
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 47473
+      },
+      {
+        "code": "CC",
+        "lot": 26247
+      },
+      {
+        "code": "YP",
+        "lot": 5667
+      }
+    ],
+    "analystOpinion": "ICBP menunjukkan pemulihan kuat dari bottom ~6000 dengan tren naik konsisten di timeframe 60m, namun daily macro masih dalam downtrend panjang sejak Januari sehingga perlu konfirmasi breakout di atas 6750. Sentimen positif dari laba naik Q1 2026 dan rekomendasi analis menjadi katalis, namun RSI 60 mendekati area jenuh dan harga dekat upper Bollinger Band — tunggu pullback ke area 6600-6650 sebelum entry.",
+    "relatedNews": [
+      "Ramalan Nasib Saham MYOR, ICBP Cs Saat Konflik AS-Iran Mereda - Bisnis Indone...",
+      "Siap Berbalik Menguat, Analis Rekomendasikan Saham HMSP, UNVR, ICBP, dan MNCN...",
+      "Laba ICBP naik 3% meski penjualan naik di kuartal I 2026 - IDNFinancials.com"
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 6700,
+    "currentLow": 6625
+  },
+  {
+    "stockCode": "SMRA",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 5,
+    "confidenceDetails": ["+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]"],
+    "entryPrice": 294,
+    "tp1": 308,
+    "sl": 278,
+    "slModerat": 279,
+    "slKonservatif": 285,
+    "macd": 0.47,
+    "macdSignal": 2.29,
+    "rsi": 36.98,
+    "ema20": 303,
+    "ema50": 297,
+    "vwap": 295,
+    "adx": 36.19,
+    "bbLow": 297,
+    "bbHigh": 313,
+    "atr": 5,
+    "patternChart": "Potential Reversal dari Support",
+    "patternCandle": "Hammer / Doji di area support EMA50",
+    "sinyalBandar": "BUY",
+    "smartMoneyNet": null,
+    "foreignNet": -25549000,
+    "foreignPartisipasi": 83,
+    "beta": 0.79,
+    "volatilitas": 36,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 298641
+      },
+      {
+        "code": "KI",
+        "lot": 271468
+      },
+      {
+        "code": "ZP",
+        "lot": 111705
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 768132
+      },
+      {
+        "code": "YP",
+        "lot": 14958
+      },
+      {
+        "code": "SQ",
+        "lot": 2865
+      }
+    ],
+    "analystOpinion": "SMRA sedang menguji area support EMA50 (297) dengan RSI oversold 37 dan harga di bawah semua EMA, namun ada potensi reversal didukung sentimen positif: marketing sales Q1 2026 naik 36%, insider buying oleh Semarop Agung, dan IHSG regime bullish. Tunggu konfirmasi candle bullish penutupan di atas 297 sebelum entry, karena tren harian masih downtrend dari level 400.",
+    "relatedNews": [
+      "Prospek Summarecon (SMRA) di Tengah Suku Bunga Tinggi, Masih Layak Dilirik? -...",
+      "Lampaui Target, Marketing Sales Summarecon Agung (SMRA) Tembus Rp5,53 Triliun...",
+      "Semarop Agung beli 2 juta saham SMRA, kini kuasai 22,91% - IDNFinancials.com"
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 296,
+    "currentLow": 294
+  },
+  {
+    "stockCode": "INKP",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 9,
+    "confidenceDetails": [
+      "+2 Strong Buyer: BK(JP Morgan Sekuritas) [83-88% WR]",
+      "+2 Foreign in top3 buyers (BK) [93.5% WR]",
+      "+1 Foreign lead buyer (BK)"
+    ],
+    "entryPrice": 7500,
+    "tp1": 7860,
+    "sl": 7100,
+    "slModerat": 7125,
+    "slKonservatif": 7275,
+    "macd": -10.33,
+    "macdSignal": 23.14,
+    "rsi": 36.91,
+    "ema20": 7654,
+    "ema50": 7591,
+    "vwap": 7492,
+    "adx": 20.08,
+    "bbLow": 7485,
+    "bbHigh": 7850,
+    "atr": 113,
+    "patternChart": "Potential Bounce dari Support setelah Downtrend Panjang",
+    "patternCandle": "Bearish Continuation / Doji area support",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 468,
+    "foreignNet": -1183400,
+    "foreignPartisipasi": 96,
+    "beta": 1.29,
+    "volatilitas": 64,
+    "topBuyers": [
+      {
+        "code": "BK",
+        "lot": 130363
+      },
+      {
+        "code": "ZP",
+        "lot": 61168
+      },
+      {
+        "code": "CC",
+        "lot": 52278
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 270010
+      },
+      {
+        "code": "RX",
+        "lot": 9593
+      },
+      {
+        "code": "KZ",
+        "lot": 5966
+      }
+    ],
+    "analystOpinion": "INKP berada di bawah EMA20 dan EMA50 dengan RSI 36.91 mendekati oversold, namun MACD masih negatif dan tren harian masih bearish dari level 12.000 sejak Maret. Insider buying (pengendali serok Rp349 miliar) dan potensi bounce dari support 7.400-7.500 menjadi katalis positif, namun perlu konfirmasi volume dan penutupan di atas EMA50 (7.591) sebelum entry.",
+    "relatedNews": [
+      "IHSG Berisiko Koreksi ke 6.176, Ini Rekomendasi Saham AMRT, TINS, ELSA, INKP ...",
+      "Rekomendasi Saham Ajaib Sekuritas Hari Ini (INKP, PTBA, MEDC) - Ajaib",
+      "INKP Siapkan Dana Rp2,35 Triliun untuk Lunasi Obligasi dan Sukuk Jatuh Tempo ..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:19:18",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 7500,
+    "currentLow": 7475
+  },
+  {
+    "stockCode": "BMRI",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 5,
+    "confidenceDetails": [
+      "+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]",
+      "-1 MG(Semesta) in top3 [46.2% WR]"
+    ],
+    "entryPrice": 4310,
+    "tp1": 4510,
+    "sl": 4090,
+    "slModerat": 4094,
+    "slKonservatif": 4181,
+    "macd": 3.72,
+    "macdSignal": 26.69,
+    "rsi": 44.24,
+    "ema20": 4377,
+    "ema50": 4309,
+    "vwap": 4361,
+    "adx": 23.01,
+    "bbLow": 4307,
+    "bbHigh": 4511,
+    "atr": 61,
+    "patternChart": "Pullback ke EMA50 Support setelah Uptrend",
+    "patternCandle": "Bearish Momentum Lemah di Support",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": null,
+    "foreignNet": -72592100,
+    "foreignPartisipasi": 67,
+    "beta": 0.81,
+    "volatilitas": 37,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 713327
+      },
+      {
+        "code": "YU",
+        "lot": 459571
+      },
+      {
+        "code": "MG",
+        "lot": 162303
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "BK",
+        "lot": 991371
+      },
+      {
+        "code": "AK",
+        "lot": 560423
+      },
+      {
+        "code": "ZP",
+        "lot": 213062
+      }
+    ],
+    "analystOpinion": "BMRI sedang pullback ke EMA50 (4309) yang bertindak sebagai support dinamis, dengan RSI 44 memberi ruang naik dan sentimen positif dari berita 'potensi cuan 40%' serta akumulasi asing jelang MSCI menjadi katalis potensial. Namun MACD histogram negatif (-22.97) dan harga di bawah VWAP (4361) mengindikasikan momentum jangka pendek masih lemah, tunggu konfirmasi penutupan di atas 4380 sebelum entry.",
+    "relatedNews": [
+      "BMRI Murah, Diburu, Potensi Cuan 40% - investor.id",
+      "IHSG Rebound Lebih dari 9% dalam Sepekan, Investor Asing Borong BMRI dan BBCA...",
+      "Saham Bank Mandiri Melemah Saat Laba Bersih Tumbuh 18 Persen - pdiperjuanganb..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:24:29",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 4310,
+    "currentLow": 4260
+  },
+  {
+    "stockCode": "NCKL",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 10,
+    "confidenceDetails": [
+      "+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]",
+      "+2 Foreign in top3 buyers (AK) [93.5% WR]",
+      "+2 Winning Combo: CC buys + ZP sells [100% WR]",
+      "+1 Multi-Foreign (2x in top5)",
+      "-1 MG(Semesta) in top3 [46.2% WR]"
+    ],
+    "entryPrice": 870,
+    "tp1": 910,
+    "sl": 825,
+    "slModerat": 826,
+    "slKonservatif": 844,
+    "macd": 1.9,
+    "macdSignal": 10.69,
+    "rsi": 33.53,
+    "ema20": 910,
+    "ema50": 889,
+    "vwap": 872,
+    "adx": 25.61,
+    "bbLow": 877,
+    "bbHigh": 977,
+    "atr": 21,
+    "patternChart": "Potential Reversal dari Support Fibonacci 61.8%",
+    "patternCandle": "Bearish Continuation / Oversold Bounce Setup",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": null,
+    "foreignNet": -156339800,
+    "foreignPartisipasi": 80,
+    "beta": 1.23,
+    "volatilitas": 70,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 831328
+      },
+      {
+        "code": "AK",
+        "lot": 818002
+      },
+      {
+        "code": "MG",
+        "lot": 447380
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "ZP",
+        "lot": 3200000
+      },
+      {
+        "code": "YU",
+        "lot": 157048
+      },
+      {
+        "code": "RX",
+        "lot": 91886
+      }
+    ],
+    "analystOpinion": "NCKL berada di bawah EMA20 (910) dan EMA50 (889) dengan RSI oversold 33.53 dan MACD histogram negatif, namun harga mendekati support Fibonacci 61.8% di 825 yang bisa menjadi area reversal; rencana buyback saham hingga Rp1 triliun adalah katalis positif, namun pencoretan dari indeks FTSE mulai 22 Juni 2026 menjadi tekanan bearish jangka menengah sehingga tunggu konfirmasi breakout di atas VWAP 872 sebelum entry.",
+    "relatedNews": [
+      "NCKL berencana buyback saham hingga Rp1 triliun - IDNFinancials.com",
+      "Jumlah pemegang saham dari PT Trimegah Bangun Persada Tbk – IDX:NCKL - Tradin...",
+      "Sinyal Cuan Saham MBMA, NCKL hingga INCO Sambut Damai di Selat Hormuz - Bisni..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 885,
+    "currentLow": 870
+  },
+  {
+    "stockCode": "LSIP",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 6,
+    "confidenceDetails": [
+      "+1 Good Buyer: SQ(BCA Sekuritas) [70-80% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 1310,
+    "tp1": 1375,
+    "sl": 1240,
+    "slModerat": 1244,
+    "slKonservatif": 1271,
+    "macd": 15.57,
+    "macdSignal": 16.69,
+    "rsi": 61.69,
+    "ema20": 1296,
+    "ema50": 1267,
+    "vwap": 1309,
+    "adx": 58.27,
+    "bbLow": 1275,
+    "bbHigh": 1319,
+    "atr": 15,
+    "patternChart": "Uptrend Channel dengan Higher Highs & Higher Lows",
+    "patternCandle": "Bullish Continuation setelah Konsolidasi",
+    "sinyalBandar": "BUY",
+    "smartMoneyNet": 21,
+    "foreignNet": 2265100,
+    "foreignPartisipasi": 29,
+    "beta": 0.63,
+    "volatilitas": 41,
+    "topBuyers": [
+      {
+        "code": "SQ",
+        "lot": 21282
+      },
+      {
+        "code": "CC",
+        "lot": 16984
+      },
+      {
+        "code": "TP",
+        "lot": 11516
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "BB",
+        "lot": 63531
+      },
+      {
+        "code": "YU",
+        "lot": 4924
+      },
+      {
+        "code": "BK",
+        "lot": 4472
+      }
+    ],
+    "analystOpinion": "LSIP menunjukkan tren naik kuat dari level 1100 dengan ADX 58.27 mengkonfirmasi momentum bullish yang solid, harga di atas EMA20 dan EMA50 dengan RSI 61.69 masih memiliki ruang naik. Sentimen positif diperkuat oleh akumulasi asing, rekomendasi buy dari analis, dan target harga yang dinaikkan, menjadikan setup ini menarik untuk entry.",
+    "relatedNews": [
+      "Saham sawit ini menguji lower line support, mampukah rebound? - IDNFinancials...",
+      "Margin LSIP di Q1 2026 Tertekan, Rekomendasi Tetap Buy, Target Harga Saham Na...",
+      "Analis Rekomendasikan Saham DSSA, LSIP, JPFA, KLBF, ESSA, dan BIPI untuk Buy ..."
+    ],
+    "status": "TP",
+    "signalDate": "2026-06-22 05:33:38",
+    "closeDate": "2026-06-22 11:51:19",
+    "exitPrice": 1375,
+    "returnPercent": 4.961832061068702,
+    "holdingDays": 0
+  },
+  {
+    "stockCode": "WIFI",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 10,
+    "confidenceDetails": [
+      "+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]",
+      "+2 Foreign in top3 buyers (AK) [93.5% WR]",
+      "+1 Multi-Foreign (3x in top5)"
+    ],
+    "entryPrice": 1705,
+    "tp1": 1790,
+    "sl": 1615,
+    "slModerat": 1620,
+    "slKonservatif": 1654,
+    "macd": 17.51,
+    "macdSignal": 15.06,
+    "rsi": 62.4,
+    "ema20": 1664,
+    "ema50": 1651,
+    "vwap": 1677,
+    "adx": 28.93,
+    "bbLow": 1623,
+    "bbHigh": 1704,
+    "atr": 35,
+    "patternChart": "Bullish Recovery dari Low + Resistance Bollinger Upper Band",
+    "patternCandle": "Shooting Star / Upper Shadow di Bollinger Upper Band",
+    "sinyalBandar": "BUY",
+    "smartMoneyNet": 32,
+    "foreignNet": 2070200,
+    "foreignPartisipasi": 27,
+    "beta": 1.69,
+    "volatilitas": 73,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 15389
+      },
+      {
+        "code": "AK",
+        "lot": 9124
+      },
+      {
+        "code": "XC",
+        "lot": 6670
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "PD",
+        "lot": 8528
+      },
+      {
+        "code": "BK",
+        "lot": 7566
+      },
+      {
+        "code": "CP",
+        "lot": 6432
+      }
+    ],
+    "analystOpinion": "WIFI telah rebound kuat dari low ~1300 ke area 1700, namun harga kini menyentuh upper Bollinger Band (1704) yang berpotensi menjadi resistance jangka pendek, sehingga perlu konfirmasi breakout sebelum entry. Katalis positif dari IRA dan Piala Dunia 2026 serta rekomendasi BUY dari analis mendukung prospek bullish, namun wait for pullback ke area 1650-1665 (EMA20/EMA50) untuk entry lebih aman.",
+    "relatedNews": [
+      "Saham WIFI: Katalis IRA dan Piala Dunia 2026 - maybanktrade.co.id",
+      "Target Harga Saham Surge (WIFI) Direvisi Turun Saat IRA Diluncurkan, Faktor I...",
+      "Piala Dunia 2026 Angkat Prospek Emiten Digital, Saham Mana Paling Menarik? - ..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:34:20",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 1705,
+    "currentLow": 1670
+  },
+  {
+    "stockCode": "ANTM",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 7,
+    "confidenceDetails": [
+      "+2 Strong Buyer: BB(Verdhana Sekuritas) [83-88% WR]",
+      "-1 MG(Semesta) in top3 [46.2% WR]"
+    ],
+    "entryPrice": 3090,
+    "tp1": 3230,
+    "sl": 2930,
+    "slModerat": 2936,
+    "slKonservatif": 2997,
+    "macd": 25.37,
+    "macdSignal": 46.23,
+    "rsi": 49.24,
+    "ema20": 3104,
+    "ema50": 3020,
+    "vwap": 3121,
+    "adx": 24.49,
+    "bbLow": 3071,
+    "bbHigh": 3211,
+    "atr": 47,
+    "patternChart": "Pullback ke Support EMA50 setelah Breakout",
+    "patternCandle": "Bearish Continuation / Doji area support",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 262,
+    "foreignNet": -24734300,
+    "foreignPartisipasi": 37,
+    "beta": 1.31,
+    "volatilitas": 69,
+    "topBuyers": [
+      {
+        "code": "BB",
+        "lot": 264478
+      },
+      {
+        "code": "MG",
+        "lot": 158533
+      },
+      {
+        "code": "XL",
+        "lot": 75513
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "ZP",
+        "lot": 171772
+      },
+      {
+        "code": "AK",
+        "lot": 167312
+      },
+      {
+        "code": "BK",
+        "lot": 94914
+      }
+    ],
+    "analystOpinion": "ANTM sedang pullback ke area EMA50 (3020) setelah breakout besar dari 2500 ke 3200, dengan RSI netral 49 dan MACD histogram negatif mengindikasikan momentum melemah jangka pendek. Waspadai dividen trap karena cum date 19 Juni sudah lewat sehingga potensi sell-on-news; tunggu konfirmasi stabilisasi harga di atas 3080-3100 sebelum entry.",
+    "relatedNews": [
+      "Saham ANTM Naik Hampir 5%, Breakout Rp3.000 Jelang RUPS Dividen & Hilirisasi ...",
+      "8 Saham Cum Date Hari Ini (19/6): ANTM, ACES hingga BYAN Siap Tebar Dividen! ...",
+      "Awas Dividen Trap! Saham dengan Dividen Rp 20.998 Cum Date Hari Ini, Harga Na..."
+    ],
+    "status": "SL",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": "2026-06-22 10:10:48",
+    "exitPrice": 2930,
+    "returnPercent": -5.177993527508091,
+    "holdingDays": 0
+  },
+  {
+    "stockCode": "BBNI",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 8,
+    "confidenceDetails": [
+      "+1 Good Buyer: YU(CGS International Sekuritas) [70-80% WR]",
+      "+2 Foreign in top3 buyers (AK) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 3670,
+    "tp1": 3820,
+    "sl": 3480,
+    "slModerat": 3486,
+    "slKonservatif": 3560,
+    "macd": 8.12,
+    "macdSignal": 24.66,
+    "rsi": 48.7,
+    "ema20": 3691,
+    "ema50": 3637,
+    "vwap": 3690,
+    "adx": 23.81,
+    "bbLow": 3632,
+    "bbHigh": 3793,
+    "atr": 52,
+    "patternChart": "Pullback ke Support EMA50 setelah Uptrend",
+    "patternCandle": "Bearish Continuation / Doji area support",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 175000,
+    "foreignNet": 11166900,
+    "foreignPartisipasi": 70,
+    "beta": 0.74,
+    "volatilitas": 37,
+    "topBuyers": [
+      {
+        "code": "YU",
+        "lot": 142094
+      },
+      {
+        "code": "CC",
+        "lot": 101752
+      },
+      {
+        "code": "AK",
+        "lot": 48141
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "ZP",
+        "lot": 226691
+      },
+      {
+        "code": "LG",
+        "lot": 49416
+      },
+      {
+        "code": "BK",
+        "lot": 24636
+      }
+    ],
+    "analystOpinion": "BBNI sedang pullback dari area 3800 menuju support EMA50 (3637) dengan RSI 48.7 yang netral dan MACD histogram negatif, mengindikasikan momentum masih lemah sehingga perlu konfirmasi reversal sebelum entry. Sentimen positif dari rekomendasi analis Bareksa dan pembelian asing serta dividen Rp349/saham bisa menjadi katalis, namun tunggu harga stabil di atas EMA20 (3691) dengan volume meningkat sebagai konfirmasi.",
+    "relatedNews": [
+      "Rekomendasi Saham Tim Analis Bareksa: BBCA, BBNI, & TLKM, IHSG Diprediksi di ...",
+      "BBCA dan BBNI Teratas, Cermati Saham yang Banyak Diborong Asing Akhir Pekan Ini...",
+      "Bank BNI (BBNI) Bagi Dividen Rp349 per saham, Simak Jadwalnya! - Ajaib"
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:03:11",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 3670,
+    "currentLow": 3570
+  },
+  {
+    "stockCode": "BFIN",
+    "signalType": "STRONG BUY",
+    "confidenceScore": 9,
+    "confidenceDetails": [
+      "+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]",
+      "+2 Foreign in top3 buyers (BK) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 685,
+    "tp1": 715,
+    "sl": 650,
+    "slModerat": 651,
+    "slKonservatif": 664,
+    "macd": 1.5,
+    "macdSignal": 5.13,
+    "rsi": 42.4,
+    "ema20": 696,
+    "ema50": 687,
+    "vwap": 688,
+    "adx": 27.59,
+    "bbLow": 684,
+    "bbHigh": 719,
+    "atr": 12,
+    "patternChart": "Pullback ke Support EMA50 setelah Uptrend",
+    "patternCandle": "Bearish Continuation / Doji area support",
+    "sinyalBandar": "BUY",
+    "smartMoneyNet": 204000,
+    "foreignNet": -1850800,
+    "foreignPartisipasi": 82,
+    "beta": 0.66,
+    "volatilitas": 56,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 50748
+      },
+      {
+        "code": "TP",
+        "lot": 18900
+      },
+      {
+        "code": "BK",
+        "lot": 19217
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 133699
+      },
+      {
+        "code": "PD",
+        "lot": 11711
+      },
+      {
+        "code": "XC",
+        "lot": 93
+      }
+    ],
+    "analystOpinion": "BFIN sedang pullback ke area EMA50 (687) dengan RSI 42 yang memberi ruang naik, namun MACD histogram negatif dan harga di bawah EMA20 mengindikasikan tekanan jual masih ada. Katalis positif dividen Rp70/saham dan berita MESOP bisa menjadi konfirmasi beli jika harga mampu rebound dan menutup di atas 690.",
+    "relatedNews": [
+      "BFI Finance (BFIN) Bagikan Dividen Rp70 per Saham, Simak Jadwal Lengkapnya",
+      "BFIN alihkan 290 juta saham buyback lewat program MESOP - IDNFinancials.com",
+      "Saham BFIN Melonjak 17% Sepekan, BFI Finance Akhirnya Buka Suara - Bareksa.com"
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 685,
+    "currentLow": 685
+  },
+  {
+    "stockCode": "ESSA",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 2,
+    "confidenceDetails": [
+      "-2 Danger Buyer: XL(Stockbit Sekuritas) [46-54% WR]"
+    ],
+    "entryPrice": 640,
+    "tp1": 672,
+    "sl": 605,
+    "slModerat": 608,
+    "slKonservatif": 621,
+    "macd": 6.27,
+    "macdSignal": 9.62,
+    "rsi": 48.04,
+    "ema20": 648,
+    "ema50": 636,
+    "vwap": 654,
+    "adx": 29.99,
+    "bbLow": 631,
+    "bbHigh": 679,
+    "atr": 17,
+    "patternChart": "Pullback ke EMA50 dalam uptrend jangka pendek",
+    "patternCandle": "Bearish momentum melemah, potensi reversal di support EMA50",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 548000,
+    "foreignNet": -27139200,
+    "foreignPartisipasi": 35,
+    "beta": 0.84,
+    "volatilitas": 67,
+    "topBuyers": [
+      {
+        "code": "XL",
+        "lot": 167807
+      },
+      {
+        "code": "CC",
+        "lot": 163507
+      },
+      {
+        "code": "ZP",
+        "lot": 58258
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 384718
+      },
+      {
+        "code": "YU",
+        "lot": 340766
+      },
+      {
+        "code": "LG",
+        "lot": 36502
+      }
+    ],
+    "analystOpinion": "ESSA sedang pullback ke area EMA50 (636) setelah rally dari 560 ke 705, dengan RSI 48 yang netral memberi ruang naik kembali jika support EMA50 bertahan. Sentimen positif dari berita rebound ESSA dan saham energi menguat di tengah IHSG turun menjadi katalis tambahan, namun konfirmasi candle bullish di area 635-640 diperlukan sebelum entry.",
+    "relatedNews": [
+      "IHSG Awal Pekan Diprediksi Bullish, Ritel Bisa Cermati Saham EMAS, ESSA, Hing...",
+      "IHSG Potensi Uji Level 6.545, Cermati Saham EMAS, ESSA hingga GGRM - Bisnis.com",
+      "Sinyal Rebound ESSA Mulai Bermunculan, Ada Peluang Apa? - KabarBursa.com"
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 05:09:19",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 640,
+    "currentLow": 640
+  },
+  {
+    "stockCode": "TINS",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 5,
+    "confidenceDetails": [
+      "-2 SM Buy (AK,BK)",
+      "-2 Destroyer Buy (AK)",
+      "+1 DI Buyer (1x: KI)",
+      "+1 Good FG (BK)",
+      "+1 YU Selling (contrarian)"
+    ],
+    "entryPrice": 3540,
+    "tp1": 3700,
+    "sl": 3360,
+    "slModerat": 3363,
+    "slKonservatif": 3434,
+    "macd": 69.24,
+    "macdSignal": 68.94,
+    "rsi": 61.65,
+    "ema20": 3449,
+    "ema50": 3339,
+    "vwap": 3511,
+    "adx": 31.64,
+    "bbLow": 3258,
+    "bbHigh": 3648,
+    "atr": 75,
+    "patternChart": "Uptrend Recovery dengan Higher Lows sejak Jun 04",
+    "patternCandle": "Bullish Continuation setelah pullback",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 106,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 1.72,
+    "volatilitas": 86,
+    "topBuyers": [
+      {
+        "code": "AK",
+        "lot": 74783
+      },
+      {
+        "code": "BK",
+        "lot": 31643
+      },
+      {
+        "code": "KI",
+        "lot": 5264
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "SQ",
+        "lot": 19046
+      },
+      {
+        "code": "MG",
+        "lot": 18006
+      },
+      {
+        "code": "PD",
+        "lot": 15409
+      }
+    ],
+    "analystOpinion": "TINS berada di atas EMA20 (3449) dan EMA50 (3339) dengan ADX 31.64 mengkonfirmasi tren naik yang kuat, sementara RSI 61.65 masih memiliki ruang naik sebelum overbought. Katalis dividen Rp88,19/saham dengan cum date 23 Juni 2026 menjadi sentimen positif tambahan yang dapat mendorong akumulasi jangka pendek.",
+    "relatedNews": [
+      "PT Timah (TINS) Bagikan Dividen Rp656,8 Miliar, Cum Date 23 Juni 2026 - Barek...",
+      "Timah (TINS) Tebar Dividen Rp656,82 Miliar, Catat Tanggalnya - CNBC Indonesia",
+      "Dividen TINS, ANTM, dan PTBA Cair Serempak - investor.id"
+    ],
+    "status": "TP",
+    "signalDate": "2026-06-22 10:14:34",
+    "closeDate": "2026-06-22 10:14:49",
+    "exitPrice": 3700,
+    "returnPercent": 4.519774011299435,
+    "holdingDays": 0
+  },
+  {
+    "stockCode": "TAPG",
+    "signalType": "BUY",
+    "confidenceScore": 4,
+    "confidenceDetails": [
+      "+1 Good Buyer: YU(CGS International Sekuritas) [70-80% WR]",
+      "+2 Foreign in top3 buyers (AI) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 1525,
+    "tp1": 1617,
+    "sl": 1445,
+    "slModerat": 1449,
+    "slKonservatif": 1479,
+    "macd": 14.64,
+    "macdSignal": 15.44,
+    "rsi": 65.27,
+    "ema20": 1515,
+    "ema50": 1485,
+    "vwap": 1526,
+    "adx": 52.32,
+    "bbLow": 1480,
+    "bbHigh": 1547,
+    "atr": 22,
+    "patternChart": "Uptrend Recovery + Resistance Bollinger Upper Band",
+    "patternCandle": "Shooting Star / Upper Shadow di puncak",
+    "sinyalBandar": "BUY",
+    "smartMoneyNet": 36,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 0.75,
+    "volatilitas": 59,
+    "topBuyers": [
+      {
+        "code": "YU",
+        "lot": 27439
+      },
+      {
+        "code": "AI",
+        "lot": 4424
+      },
+      {
+        "code": "PD",
+        "lot": 3052
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "AK",
+        "lot": 33100
+      },
+      {
+        "code": "ZP",
+        "lot": 7900
+      },
+      {
+        "code": "KZ",
+        "lot": 2550
+      }
+    ],
+    "analystOpinion": "TAPG menunjukkan recovery kuat dari level 1250 ke 1550 pada 60m chart, namun harga kini menyentuh upper Bollinger Band (1547) dan MACD histogram negatif (-0.8) mengindikasikan momentum mulai melemah — tunggu pullback ke area 1520-1525 sebelum entry. Sentimen positif dari insider buying komisaris, dividen final Rp91/lembar, dan rekomendasi BUY analis menjadi katalis fundamental yang mendukung, namun pada makro daily chart harga masih dalam fase pemulihan dari downtrend besar (2000→1250) sehingga konfirmasi breakout di atas 1550 diperlukan.",
+    "relatedNews": [
+      "Rekomendasi Saham Ajaib Sekuritas Hari Ini (EXCL, MEDC, TAPG) - Ajaib",
+      "Komisaris Emiten Sawit TAPG Tampung 1,05 Juta Saham Harga Premium - Emitennew...",
+      "TAPG tetapkan dividen final Rp91 per lembar, TP Rachmat raup miliaran - IDNFi..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:02:53",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 1545,
+    "currentLow": 1525
+  },
+  {
+    "stockCode": "MYOR",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 10,
+    "confidenceDetails": [
+      "+3 Elite Buyer: AK(UBS Sekuritas) [97-100% WR]",
+      "+2 Foreign in top3 buyers (AK) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 1870,
+    "tp1": 1960,
+    "sl": 1770,
+    "slModerat": 1776,
+    "slKonservatif": 1814,
+    "macd": 41.29,
+    "macdSignal": 32.29,
+    "rsi": 61.84,
+    "ema20": 1800,
+    "ema50": 1753,
+    "vwap": 1938,
+    "adx": 34.56,
+    "bbLow": 1669,
+    "bbHigh": 1909,
+    "atr": 39,
+    "patternChart": "Uptrend Channel dengan Pullback dari High",
+    "patternCandle": "Bearish Engulfing setelah Spike ke 1950",
+    "sinyalBandar": "STRONG_BUY",
+    "smartMoneyNet": 154,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 0.37,
+    "volatilitas": 45,
+    "topBuyers": [
+      {
+        "code": "AK",
+        "lot": 147206
+      },
+      {
+        "code": "YU",
+        "lot": 28871
+      },
+      {
+        "code": "NI",
+        "lot": 5023
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "PD",
+        "lot": 130576
+      },
+      {
+        "code": "OD",
+        "lot": 10803
+      },
+      {
+        "code": "CC",
+        "lot": 6861
+      }
+    ],
+    "analystOpinion": "MYOR menunjukkan momentum bullish kuat dari level 1600 dengan ADX 34.56 dan MACD positif, namun harga saat ini di bawah VWAP 1938 dan terjadi pullback tajam setelah spike ke 1950 yang mengindikasikan distribusi jangka pendek. Berita positif sebagai top gainer dan rekomendasi analis menjadi katalis, namun entry lebih aman ditunggu konfirmasi rebound di area 1850-1870 dengan volume meningkat sebelum BUY.",
+    "relatedNews": [
+      "Rekomendasi Saham Hari Ini: Ada MYOR hingga HMSP - CNBC Indonesia",
+      "IHSG Ditutup Naik ke 6.177, Saham MORA, MYOR, dan BYAN jadi Top Gainers - Inf...",
+      "Ramalan Nasib Saham MYOR, ICBP Cs Saat Konflik AS-Iran Mereda - Bisnis Indone..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:06:01",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 1870,
+    "currentLow": 1870
+  },
+  {
+    "stockCode": "CITY",
+    "signalType": "WATCHLIST",
+    "confidenceScore": null,
+    "confidenceDetails": [],
+    "entryPrice": 165,
+    "tp1": 177,
+    "sl": 154,
+    "slModerat": 157,
+    "slKonservatif": 160,
+    "macd": 7.3,
+    "macdSignal": 6.94,
+    "rsi": 61.89,
+    "ema20": 161,
+    "ema50": 150,
+    "vwap": 172,
+    "adx": 49.21,
+    "bbLow": 136,
+    "bbHigh": 182,
+    "atr": 8,
+    "patternChart": "Uptrend Recovery dari Low + Pullback dari Resistance",
+    "patternCandle": "Bearish Pullback setelah Spike High",
+    "sinyalBandar": null,
+    "smartMoneyNet": null,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": null,
+    "volatilitas": null,
+    "topBuyers": [],
+    "topSellers": [],
+    "analystOpinion": "CITY menunjukkan momentum bullish kuat dari daily chart (recovery dari low 105 ke 190) dengan ADX 49 mengkonfirmasi tren kuat, namun harga 60m sedang pullback dari spike high ~192 dan berada di bawah VWAP 172 — tunggu konfirmasi support di area 160-165 sebelum entry. Berita insider buying 20.63% oleh investor terkait BKSL menjadi katalis positif fundamental yang mendukung potensi kenaikan lanjutan.",
+    "relatedNews": [
+      "Investor Ini Borong 20,63% Saham Natura City (CITY), Ternyata Ada Hubungan de...",
+      "Target harga saham Canadian Pacific Kansas City dinaikkan menjadi $105 oleh A...",
+      "Total utang per saham dari Future City Leasehold Real Estate Investment Trust..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:20:31",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 169,
+    "currentLow": 165
+  },
+  {
+    "stockCode": "HRUM",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 8,
+    "confidenceDetails": [
+      "+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]",
+      "+2 Foreign in top3 buyers (DR) [93.5% WR]"
+    ],
+    "entryPrice": 800,
+    "tp1": 840,
+    "sl": 760,
+    "slModerat": 760,
+    "slKonservatif": 776,
+    "macd": 3.99,
+    "macdSignal": 7.33,
+    "rsi": 48.67,
+    "ema20": 806,
+    "ema50": 789,
+    "vwap": 807,
+    "adx": 32.08,
+    "bbLow": 795,
+    "bbHigh": 822,
+    "atr": 19,
+    "patternChart": "Pullback ke Support EMA50 dalam Downtrend Makro",
+    "patternCandle": "Bearish Continuation / Doji Area",
+    "sinyalBandar": "NEUTRAL",
+    "smartMoneyNet": 21,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 1.43,
+    "volatilitas": 64,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 20574
+      },
+      {
+        "code": "CP",
+        "lot": 7040
+      },
+      {
+        "code": "DR",
+        "lot": 6377
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "PD",
+        "lot": 40435
+      },
+      {
+        "code": "ZP",
+        "lot": 4975
+      },
+      {
+        "code": "YP",
+        "lot": 2360
+      }
+    ],
+    "analystOpinion": "HRUM berada tepat di EMA50 (789) dengan harga 800, namun EMA20 (806) masih di atas harga dan MACD histogram negatif mengindikasikan momentum lemah; tunggu konfirmasi breakout di atas 810-820 sebelum entry. Sentimen positif dari berita capex US$310 juta dan ekspansi nikel bisa menjadi katalis jangka menengah, namun dalam regime IHSG CAUTIOUS lebih bijak menunggu konfirmasi volume dan penutupan di atas VWAP 807.",
+    "relatedNews": [
+      "HRUM alokasikan capex sebesar US$310 juta pada 2026 - IDNFinancials.com",
+      "Saham HRUM Melesat 29,69% Sepekan, Sederet Target Pencapaian Sudah Dibidik di...",
+      "Harga Komoditas Naik, ADRO, HRUM, ESSA Punya Potensi Sepekan ke Depan - Ajaib"
+    ],
+    "status": "TP",
+    "signalDate": "2026-06-22 13:12:22",
+    "closeDate": "2026-06-22 14:05:11",
+    "exitPrice": 840,
+    "returnPercent": 5,
+    "holdingDays": 0,
+    "currentHigh": 845,
+    "currentLow": 800
+  },
+  {
+    "stockCode": "NSSS",
+    "signalType": "WATCHLIST",
+    "confidenceScore": null,
+    "confidenceDetails": [],
+    "entryPrice": 540,
+    "tp1": 577,
+    "sl": 510,
+    "slModerat": 513,
+    "slKonservatif": 524,
+    "macd": 21.54,
+    "macdSignal": 23.04,
+    "rsi": 58.66,
+    "ema20": 531,
+    "ema50": 492,
+    "vwap": 547,
+    "adx": 51.38,
+    "bbLow": 491,
+    "bbHigh": 575,
+    "atr": 25,
+    "patternChart": "Uptrend dengan Pullback dari High",
+    "patternCandle": "Bearish Engulfing setelah spike ke 615",
+    "sinyalBandar": null,
+    "smartMoneyNet": null,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 1.7,
+    "volatilitas": 124,
+    "topBuyers": [],
+    "topSellers": [],
+    "analystOpinion": "NSSS menunjukkan uptrend kuat dari 350 ke 615 pada timeframe 60m, namun saat ini sedang pullback dari high dengan MACD histogram negatif (-1.5) mengindikasikan momentum melemah sementara. Sentimen positif dari insider buying (Samuel Tumbuh Bersama pegang ~40%) dan dividen Rp119M menjadi katalis fundamental, namun tunggu konfirmasi stabilisasi di area 530-545 sebelum entry untuk menghindari chasing.",
+    "relatedNews": [
+      "Perubahan Kepemilikan Saham NSSS, Beli - Indo Premier Sekuritas",
+      "FAC Sekuritas - FAC Sekuritas",
+      "Samuel Tumbuh Bersama tambah 90 juta NSSS, pegang hampir 40% saham - IDNFinan..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:20:31",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 545,
+    "currentLow": 540
+  },
+  {
+    "stockCode": "RALS",
+    "signalType": "BUY",
+    "confidenceScore": 5,
+    "confidenceDetails": ["+2 Strong Buyer: CC(Mandiri Sekuritas) [83-88% WR]"],
+    "entryPrice": 376,
+    "tp1": 394,
+    "sl": 356,
+    "slModerat": 357,
+    "slKonservatif": 365,
+    "macd": -1.2,
+    "macdSignal": -0.77,
+    "rsi": 45.49,
+    "ema20": 380,
+    "ema50": 379,
+    "vwap": 378,
+    "adx": 31.97,
+    "bbLow": 374,
+    "bbHigh": 386,
+    "atr": 5,
+    "patternChart": "Downtrend dengan potensi base formation di support 374-376",
+    "patternCandle": "Bearish continuation dengan lower highs sejak Jun 15",
+    "sinyalBandar": "NEUTRAL",
+    "smartMoneyNet": 8,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 0.48,
+    "volatilitas": 33,
+    "topBuyers": [
+      {
+        "code": "CC",
+        "lot": 8279
+      },
+      {
+        "code": "XL",
+        "lot": 6990
+      },
+      {
+        "code": "EP",
+        "lot": 5673
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "YU",
+        "lot": 21004
+      },
+      {
+        "code": "SQ",
+        "lot": 2980
+      },
+      {
+        "code": "PD",
+        "lot": 1021
+      }
+    ],
+    "analystOpinion": "RALS sedang dalam tren turun jangka menengah (daily) dengan harga di bawah EMA20 dan EMA50 yang mulai mendatar, namun dividen yield 11% dan treasury share transfer bisa menjadi katalis pembalikan jika harga mampu bertahan di support 374-376. Tunggu konfirmasi reversal candle dengan volume di area support sebelum entry.",
+    "relatedNews": [
+      "RALS kantongi Rp39,7 miliar dari pengalihan saham - IDNFinancials.com",
+      "Dividen Ramayana Lestari Sentosa (RALS) Rp50 per Saham, Estimasi Yield Tembus...",
+      "Ramayana (RALS) Bakal Alihkan 203.513.800 Saham Treasuri ke Pemegang Saham Ut..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:17:34",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 376,
+    "currentLow": 376
+  },
+  {
+    "stockCode": "PGEO",
+    "signalType": "WATCHLIST",
+    "confidenceScore": 4,
+    "confidenceDetails": [
+      "+1 Good Buyer: ZP(Maybank Sekuritas) [70-80% WR]",
+      "+2 Foreign in top3 buyers (AK) [93.5% WR]",
+      "+1 Multi-Foreign (2x in top5)"
+    ],
+    "entryPrice": 890,
+    "tp1": 930,
+    "sl": 845,
+    "slModerat": 846,
+    "slKonservatif": 863,
+    "macd": 6.62,
+    "macdSignal": 7.46,
+    "rsi": 57.57,
+    "ema20": 893,
+    "ema50": 878,
+    "vwap": 895,
+    "adx": 42.39,
+    "bbLow": 879,
+    "bbHigh": 910,
+    "atr": 14,
+    "patternChart": "Bullish Recovery dari Low + Resistance Zone 900-910",
+    "patternCandle": "Doji/Spinning Top di Resistance",
+    "sinyalBandar": "BUY",
+    "smartMoneyNet": 29,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": 0.92,
+    "volatilitas": 46,
+    "topBuyers": [
+      {
+        "code": "ZP",
+        "lot": 29517
+      },
+      {
+        "code": "AK",
+        "lot": 22332
+      },
+      {
+        "code": "OD",
+        "lot": 3058
+      }
+    ],
+    "topSellers": [
+      {
+        "code": "XL",
+        "lot": 23828
+      },
+      {
+        "code": "YP",
+        "lot": 9562
+      },
+      {
+        "code": "CC",
+        "lot": 6967
+      }
+    ],
+    "analystOpinion": "PGEO berhasil rebound kuat dari low ~775 ke area 900 pada timeframe 60m, namun secara makro daily masih dalam downtrend panjang sejak Feb dengan resistance kuat di 900-920; ADX 42 menunjukkan tren masih bertenaga tapi MACD histogram negatif (-0.84) mengindikasikan momentum mulai melemah di area ini. Sentimen mixed: analis Bareksa rekomendasikan BUY namun asing masih net sell 11 hari di Mei, tunggu konfirmasi breakout di atas 910 dengan volume sebelum entry.",
+    "relatedNews": [
+      "Rekomendasi Saham Tim Analis Bareksa: SMIL & PGEO, IHSG Diprediksi Menguat - ...",
+      "Asing Jual PGEO 11 Hari Sepanjang Mei, Kenapa Emiten ini Terus Ditinggalkan? ...",
+      "IHSG Dibuka Menguat ke 6.306, Top Gainers LQ45: PGEO, MBMA dan BBCA, Rabu (17..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:20:31",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 905,
+    "currentLow": 890
+  },
+  {
+    "stockCode": "BCIC",
+    "signalType": "WATCHLIST",
+    "confidenceScore": null,
+    "confidenceDetails": [],
+    "entryPrice": 138,
+    "tp1": 147,
+    "sl": 128,
+    "slModerat": 131,
+    "slKonservatif": 134,
+    "macd": 8.02,
+    "macdSignal": 8.38,
+    "rsi": 57.91,
+    "ema20": 133,
+    "ema50": 121,
+    "vwap": 142,
+    "adx": 46.62,
+    "bbLow": 119,
+    "bbHigh": 154,
+    "atr": 12,
+    "patternChart": "Bullish Momentum Pullback dari Rally Kuat",
+    "patternCandle": "Bearish Engulfing / Distribusi setelah spike",
+    "sinyalBandar": null,
+    "smartMoneyNet": null,
+    "foreignNet": null,
+    "foreignPartisipasi": null,
+    "beta": null,
+    "volatilitas": null,
+    "topBuyers": [],
+    "topSellers": [],
+    "analystOpinion": "BCIC baru saja mengalami lonjakan 35% pada 17 Juni didukung insider buying petinggi JTrust sebagai katalis positif, namun harga kini dalam fase koreksi/distribusi setelah menyentuh high ~175 dan MACD histogram negatif mengindikasikan momentum melemah. Tunggu konfirmasi stabilisasi di area 135-140 dengan volume sebelum entry, mengingat saham di bawah VWAP 142 dan IHSG dalam regime CAUTIOUS.",
+    "relatedNews": [
+      "Petinggi JTrust Kompak Belanja Saham BCIC, Sinyal Apa? - pasardana.id",
+      "Kepemilikan Saham Bulan Mei 2026 BCIC - Indo Premier Sekuritas",
+      "5 Saham Top Gainers IHSG 17 Juni 2026: Saham Perbankan BCIC Melonjak 35% - Vi..."
+    ],
+    "status": "RUNNING",
+    "signalDate": "2026-06-22 13:20:31",
+    "closeDate": null,
+    "exitPrice": null,
+    "returnPercent": null,
+    "holdingDays": null,
+    "currentHigh": 140,
+    "currentLow": 138
+  }
+]

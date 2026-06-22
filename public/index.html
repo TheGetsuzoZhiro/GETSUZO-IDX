@@ -18,17 +18,39 @@
     <link rel="manifest" href="/assets/favicon/manifest.json" />
 
     <!-- Favicon desktop -->
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="48x48" href="/assets/favicon/favicon-48x48.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/assets/favicon/favicon-16x16.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/assets/favicon/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="48x48"
+      href="/assets/favicon/favicon-48x48.png"
+    />
     <link rel="shortcut icon" href="/assets/favicon/favicon.ico" />
 
     <!-- Apple Touch Icon (iOS) -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/favicon/apple-touch-icon.png" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/assets/favicon/apple-touch-icon.png"
+    />
 
     <!-- Windows Tiles (opsional) -->
     <meta name="msapplication-TileColor" content="#030303" />
-    <meta name="msapplication-config" content="/assets/favicon/browserconfig.xml" />
+    <meta
+      name="msapplication-config"
+      content="/assets/favicon/browserconfig.xml"
+    />
     <!-- =================================================================== -->
 
     <link rel="stylesheet" href="style.css" />
@@ -44,9 +66,15 @@
 
     <style>
       /* Tambahan style untuk warna status */
-      .status-open { color: #4caf50; }
-      .status-closed { color: #f44336; }
-      .status-holiday { color: #ff9800; }
+      .status-open {
+        color: #4caf50;
+      }
+      .status-closed {
+        color: #f44336;
+      }
+      .status-holiday {
+        color: #ff9800;
+      }
     </style>
   </head>
   <body>
@@ -109,7 +137,12 @@
           <div class="nav-dropdown">
             <button class="nav-link" data-tab="signals" id="signalsParent">
               <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
                 </svg>
               </div>
@@ -118,12 +151,20 @@
             </button>
             <ul class="nav-sub" id="signalSubMenu">
               <li>
-                <a class="nav-sub-link" data-tab="signals-today" href="#signals-today">
+                <a
+                  class="nav-sub-link"
+                  data-tab="signals-today"
+                  href="#signals-today"
+                >
                   <i class="fas fa-fire"></i> Today's Signals
                 </a>
               </li>
               <li>
-                <a class="nav-sub-link" data-tab="signals-running" href="#signals-running">
+                <a
+                  class="nav-sub-link"
+                  data-tab="signals-running"
+                  href="#signals-running"
+                >
                   <i class="fas fa-play"></i> Running
                 </a>
               </li>
@@ -138,7 +179,10 @@
             class="user-card"
           >
             <div class="user-avatar">
-              <img src="https://i.ibb.co.com/xt8MYhfK/songkyohyeon-R-Download.jpg" alt="Avatar" />
+              <img
+                src="https://i.ibb.co.com/xt8MYhfK/songkyohyeon-R-Download.jpg"
+                alt="Avatar"
+              />
               <div class="status-pulse"></div>
             </div>
             <div class="user-details">
@@ -407,59 +451,88 @@
       </main>
     </div>
 
+    <!-- ===== NOTIFICATION PANEL ===== -->
+    <!-- Overlay -->
+    <div class="notif-panel-overlay" id="notifPanelOverlay"></div>
+    <!-- Panel -->
+    <div class="notif-panel" id="notifPanel">
+      <div class="notif-panel-header">
+        <div class="notif-panel-title">
+          <i class="fas fa-bell"></i>
+          <span>Notifications</span>
+          <span class="notif-count" id="notifCount">0</span>
+        </div>
+        <button class="notif-panel-close" id="notifPanelClose">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="notif-panel-body" id="notifPanelBody">
+        <!-- Notifications will be rendered here -->
+        <div class="notif-empty">
+          <i class="fas fa-bell-slash"></i>
+          <p>No notifications yet</p>
+        </div>
+      </div>
+      <div class="notif-panel-footer">
+        <button class="notif-clear-btn" id="notifClearBtn">
+          <i class="fas fa-trash-alt"></i> Clear All
+        </button>
+      </div>
+    </div>
     <!-- ============ SCRIPTS ============ -->
     <script>
       // Fungsi update market status (dot & teks di header)
       async function updateMarketStatus() {
         try {
-          const res = await fetch('/api/market-status');
+          const res = await fetch("/api/market-status");
           const data = await res.json();
-          const statusEl = document.getElementById('marketStatus');
-          const dot = statusEl.querySelector('.dot');
-          const text = statusEl.querySelector('.market-text');
+          const statusEl = document.getElementById("marketStatus");
+          const dot = statusEl.querySelector(".dot");
+          const text = statusEl.querySelector(".market-text");
 
           // Update dot dan teks berdasarkan data
           if (data.isOpen) {
-            dot.className = 'dot open';
-            text.textContent = 'Market Open';
+            dot.className = "dot open";
+            text.textContent = "Market Open";
           } else {
-            dot.className = 'dot closed';
+            dot.className = "dot closed";
             // Tampilkan teks status yang lebih detail
-            let statusText = data.statusText || 'Market Closed';
+            let statusText = data.statusText || "Market Closed";
             text.textContent = statusText;
           }
         } catch (e) {
-          console.warn('Gagal update status pasar', e);
+          console.warn("Gagal update status pasar", e);
         }
       }
 
       // Fungsi update status sistem di hero-stats
       async function updateSystemStatus() {
         try {
-          const res = await fetch('/api/market-status');
+          const res = await fetch("/api/market-status");
           const data = await res.json();
-          const statusEl = document.getElementById('systemStatus');
+          const statusEl = document.getElementById("systemStatus");
 
           // Tampilkan status dengan keterangan
-          let displayText = data.statusText || (data.isOpen ? 'Market Open' : 'Market Closed');
+          let displayText =
+            data.statusText || (data.isOpen ? "Market Open" : "Market Closed");
           statusEl.textContent = displayText;
 
           // Ubah warna sesuai status
           if (data.isOpen) {
-            statusEl.className = 'stat-number status-open';
-          } else if (data.statusClass === 'holiday' || data.holidayName) {
-            statusEl.className = 'stat-number status-holiday';
+            statusEl.className = "stat-number status-open";
+          } else if (data.statusClass === "holiday" || data.holidayName) {
+            statusEl.className = "stat-number status-holiday";
           } else {
-            statusEl.className = 'stat-number status-closed';
+            statusEl.className = "stat-number status-closed";
           }
 
           // Update jam
-          const clockEl = document.getElementById('clockDisplay');
+          const clockEl = document.getElementById("clockDisplay");
           if (data.currentTime) {
             clockEl.textContent = data.currentTime;
           }
         } catch (e) {
-          console.warn('Gagal update status sistem', e);
+          console.warn("Gagal update status sistem", e);
         }
       }
 
@@ -476,10 +549,45 @@
       // ===== SCRIPT LAINNYA (untuk tab, chart, dll) =====
       // ... (sisanya dari script.js Anda, atau bisa diimpor dari file terpisah)
       // Di sini kami sertakan placeholder agar tidak error
-      console.log('Dashboard loaded');
+      console.log("Dashboard loaded");
     </script>
 
     <!-- File script.js asli Anda (jika ada) -->
     <script src="script.js"></script>
-  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0db0e1bec7ca39b',t:'MTc4MTc5MzY4OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+    <script>
+      (function () {
+        function c() {
+          var b = a.contentDocument || a.contentWindow.document;
+          if (b) {
+            var d = b.createElement("script");
+            d.innerHTML =
+              "window.__CF$cv$params={r:'a0db0e1bec7ca39b',t:'MTc4MTc5MzY4OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+            b.getElementsByTagName("head")[0].appendChild(d);
+          }
+        }
+        if (document.body) {
+          var a = document.createElement("iframe");
+          a.height = 1;
+          a.width = 1;
+          a.style.position = "absolute";
+          a.style.top = 0;
+          a.style.left = 0;
+          a.style.border = "none";
+          a.style.visibility = "hidden";
+          document.body.appendChild(a);
+          if ("loading" !== document.readyState) c();
+          else if (window.addEventListener)
+            document.addEventListener("DOMContentLoaded", c);
+          else {
+            var e = document.onreadystatechange || function () {};
+            document.onreadystatechange = function (b) {
+              e(b);
+              "loading" !== document.readyState &&
+                ((document.onreadystatechange = e), c());
+            };
+          }
+        }
+      })();
+    </script>
+  </body>
 </html>
