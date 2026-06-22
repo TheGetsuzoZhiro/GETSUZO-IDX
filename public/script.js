@@ -2623,10 +2623,10 @@ function updateTotalSignals(running, closed) {
 }
 
 // ========== NOTIFICATION LOGIC ==========
-let prevRunningIds = localStorage.getItem("lastRunningIds") || "";
-let prevClosedIds = localStorage.getItem("lastClosedIds") || "";
-
 function checkSignalChanges(running, closed) {
+  const prevRunningIds = localStorage.getItem("lastRunningIds") || "";
+  const prevClosedIds = localStorage.getItem("lastClosedIds") || "";
+
   const currentRunningIds = running
     .map((s) => `${s.stockCode}-${s.signalDate}`)
     .sort()
@@ -2648,7 +2648,6 @@ function checkSignalChanges(running, closed) {
     const newSignals = running.filter((s) =>
       newRunning.includes(`${s.stockCode}-${s.signalDate}`),
     );
-    // Kirim notifikasi per saham
     newSignals.forEach((s) => {
       const signalType = s.signalType || "WATCHLIST";
       let emoji = "📊";
@@ -2658,7 +2657,6 @@ function checkSignalChanges(running, closed) {
       else if (signalType.toUpperCase().includes("STRONG SELL")) emoji = "🔻";
       const msg = `${emoji} ${s.stockCode} - ${signalType}`;
       sendNotification("🔔 Today's Signals", msg);
-      // Simpan ke history
       addNotification("🔔 Today's Signals", msg, "signal");
     });
   }
