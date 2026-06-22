@@ -1,0 +1,3121 @@
+// ========== GLOBAL ==========
+const apiBase = "/api";
+let refreshInterval = null;
+let lastSignalCount = 0;
+let equityChart = null,
+  winRateChart = null,
+  signalChart = null;
+let pollingInterval = null;
+let currentTab = "home";
+let detailCharts = { rsi: null, macd: null, bandar: null };
+let _allRunning = [];
+let _allClosed = [];
+let currentSignalFilter = "none"; // 'none' | 'all' | 'today' | 'running'
+
+// ========== STATUS DETAIL VIEW ==========
+let isDetailView = false;
+let currentDetailIndex = null;
+
+// ========== HELPER TIMEZONE ==========
+function getTodayWIB() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(now);
+}
+
+// ========== HELPERS ==========
+function triggerHaptic() {
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return str.replace(
+    /[&<>]/g,
+    (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[m] || m,
+  );
+}
+
+// ========== HELPER TAGS (Font Awesome, netral) ==========
+function buildTagItems(s) {
+  const items = [];
+
+  // Pattern Chart
+  if (s.patternChart) {
+    const pc = s.patternChart.toLowerCase();
+    if (pc.includes("breakout")) {
+      items.push({ label: "Breakout", icon: "fa-arrow-right-to-bracket" });
+    } else if (pc.includes("consolidation")) {
+      items.push({ label: "Consolidation", icon: "fa-arrows-left-right" });
+    } else if (pc.includes("reversal")) {
+      items.push({ label: "Reversal", icon: "fa-rotate-right" });
+    } else if (pc.includes("trend")) {
+      items.push({ label: "Trend", icon: "fa-chart-line" });
+    }
+  }
+
+  // RSI
+  if (s.rsi != null) {
+    if (s.rsi < 30) {
+      items.push({ label: "Oversold", icon: "fa-arrow-down-wide-short" });
+    } else if (s.rsi > 70) {
+      items.push({ label: "Overbought", icon: "fa-arrow-up-wide-short" });
+    }
+  }
+
+  // Smart Money
+  if (s.smartMoneyNet && Math.abs(s.smartMoneyNet) > 100) {
+    items.push({
+      label: s.smartMoneyNet > 0 ? "Smart Buy" : "Smart Sell",
+      icon: "fa-robot",
+    });
+  }
+
+  // Foreign Flow
+  if (s.foreignNet && Math.abs(s.foreignNet) > 100) {
+    items.push({
+      label: s.foreignNet > 0 ? "Foreign Buy" : "Foreign Sell",
+      icon: "fa-globe",
+    });
+  }
+
+  // Candle Pattern
+  if (s.patternCandle) {
+    const pc = s.patternCandle.toLowerCase();
+    if (pc.includes("bullish")) {
+      items.push({ label: "Bullish", icon: "fa-arrow-trend-up" });
+    } else if (pc.includes("bearish")) {
+      items.push({ label: "Bearish", icon: "fa-arrow-trend-down" });
+    } else if (pc.includes("gap up")) {
+      items.push({ label: "Gap Up", icon: "fa-arrow-up-from-bracket" });
+    } else if (pc.includes("gap down")) {
+      items.push({ label: "Gap Down", icon: "fa-arrow-down-from-bracket" });
+    }
+  }
+
+  // Fallback
+  if (items.length === 0) {
+    items.push({ label: "Sector", icon: "fa-building" });
+  }
+
+  return items;
+}
+
+function renderTagHtml(s, inline = false) {
+  const items = buildTagItems(s);
+  const cls = inline ? "emit-tag-group inline" : "emit-tag-group";
+  return items.length
+    ? `<div class="${cls}">${items
+        .map(
+          (t) =>
+            `<span class="emit-tag"><i class="fa-solid ${t.icon}" style="margin-right:3px; font-size:0.65rem;"></i>${t.label}</span>`,
+        )
+        .join("")}</div>`
+    : "";
+}
+
+function formatReportText(text) {
+  if (!text) return "";
+  return text
+    .replace(/\n/g, "<br>")
+    .replace(/\*([^*]+)\*/g, "<strong>$1</strong>")
+    .replace(/_([^_]+)_/g, "<em>$1</em>");
+}
+
+function fmtPrice(num) {
+  return num != null ? `Rp${Number(num).toLocaleString("id-ID")}` : "–";
+}
+
+function fmtPriceNoRp(num) {
+  return num != null ? Number(num).toLocaleString("id-ID") : "–";
+}
+
+// ========== HARGA & INFO REAL-TIME (via Backend) ==========
+const priceCache = new Map();
+const infoCache = new Map();
+
+async function fetchStockPrice(symbol) {
+  if (priceCache.has(symbol)) {
+    const cached = priceCache.get(symbol);
+    if (Date.now() - cached.timestamp < 30000) {
+      return cached.price;
+    }
+  }
+  try {
+    const response = await fetch(`/api/price/${symbol}`);
+    if (!response.ok) throw new Error("Network error");
+    const data = await response.json();
+    const price = data.price;
+    if (price != null) {
+      priceCache.set(symbol, { price, timestamp: Date.now() });
+      return price;
+    }
+    return null;
+  } catch (e) {
+    console.warn(`Gagal fetch harga ${symbol}:`, e);
+    return null;
+  }
+}
+
+async function fetchStockInfo(symbol) {
+  if (infoCache.has(symbol)) {
+    const cached = infoCache.get(symbol);
+    if (Date.now() - cached.timestamp < 3600000) {
+      return cached.data;
+    }
+  }
+  try {
+    const response = await fetch(`/api/stock-info/${symbol}`);
+    if (!response.ok) throw new Error("Network error");
+    const data = await response.json();
+    infoCache.set(symbol, { data, timestamp: Date.now() });
+    return data;
+  } catch (e) {
+    console.warn(`Gagal fetch info ${symbol}:`, e);
+    return { symbol, longName: symbol, logoUrl: null };
+  }
+}
+
+// ========== LOADING ==========
+function showLoading(containerId) {
+  const c = document.getElementById(containerId);
+  if (c)
+    c.innerHTML = `<div class="loading-state"><div class="loader"><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-ring"></div></div><p>Loading...</p></div>`;
+}
+
+// ========== REPORTS ==========
+function parseDailyReport(content) {
+  const result = {
+    newSignals: 0,
+    tp: 0,
+    sl: 0,
+    running: 0,
+    winRate: 0,
+    totalReturn: 0,
+    bestTrade: null,
+    worstTrade: null,
+    positions: [],
+  };
+
+  if (!content) return result;
+
+  const lines = content.split("\n").map((l) => l.trim());
+  lines.forEach((line) => {
+    // Support "New Signals:" atau "Total Signals:"
+    if (line.includes("New Signals:") || line.includes("Total Signals:")) {
+      const val = line.match(/\d+/);
+      if (val) result.newSignals = parseInt(val[0]);
+    } else if (line.includes("TP:")) {
+      const val = line.match(/\d+/);
+      if (val) result.tp = parseInt(val[0]);
+    } else if (line.includes("SL:")) {
+      const val = line.match(/\d+/);
+      if (val) result.sl = parseInt(val[0]);
+    } else if (line.includes("Running:")) {
+      const val = line.match(/\d+/);
+      if (val) result.running = parseInt(val[0]);
+    } else if (line.includes("Win Rate:")) {
+      const val = line.match(/[\d.]+/);
+      if (val) result.winRate = parseFloat(val[0]);
+    } else if (line.includes("Total Return:")) {
+      const val = line.match(/([+-]?[\d.]+)/);
+      if (val) result.totalReturn = parseFloat(val[1]);
+    } else if (line.includes("Best Trade:")) {
+      const match = line.match(/Best Trade:\s*\**\s*([A-Z]+)\s*([+-]?[\d.]+)%/);
+      if (match) {
+        result.bestTrade = { stock: match[1], return: parseFloat(match[2]) };
+      }
+    } else if (line.includes("Worst Trade:")) {
+      const match = line.match(
+        /Worst Trade:\s*\**\s*([A-Z]+)\s*([+-]?[\d.]+)%/,
+      );
+      if (match) {
+        result.worstTrade = { stock: match[1], return: parseFloat(match[2]) };
+      }
+    } else if (line.includes(".")) {
+      const match = line.match(
+        /(\d+)\.\s+([A-Z]+):\s+Entry\s+([\d,]+),\s+Current\s+([^,]+),\s+Return\s+([\d.]+)%/,
+      );
+      if (match) {
+        result.positions.push({
+          stock: match[2],
+          entry: parseFloat(match[3].replace(/,/g, "")),
+          current:
+            match[4].trim() === "?"
+              ? null
+              : parseFloat(match[4].replace(/,/g, "")),
+          return: parseFloat(match[5]),
+          hold: 0,
+        });
+        const holdMatch = line.match(/Hold\s+(\d+)\s+days/);
+        if (holdMatch) {
+          result.positions[result.positions.length - 1].hold = parseInt(
+            holdMatch[1],
+          );
+        }
+      }
+    }
+  });
+
+  return result;
+}
+
+function createStatCard(label, value, color, icon) {
+  return `
+    <div style="background:rgba(255,255,255,0.02); border-radius:12px; padding:1rem; border:1px solid rgba(255,255,255,0.06); transition:all 0.2s; backdrop-filter:blur(4px);">
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+        <i class="${icon}" style="color:${color}; font-size:1rem;"></i>
+        <span style="font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">${label}</span>
+      </div>
+      <div style="font-family:'JetBrains Mono'; font-size:1.5rem; font-weight:700; color:${color};">${value}</div>
+    </div>
+  `;
+}
+
+// ========== TRADE SUMMARY - FILTER ==========
+function filterReportsByDate(
+  reports,
+  filterType,
+  customStart = null,
+  customEnd = null,
+) {
+  if (!reports || !reports.length) return [];
+
+  const now = new Date();
+  let startDate = new Date(now);
+  let endDate = new Date(now);
+  endDate.setHours(23, 59, 59, 999);
+
+  switch (filterType) {
+    case "today":
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "7days":
+      startDate.setDate(now.getDate() - 7);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "1month":
+      startDate.setMonth(now.getMonth() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "custom":
+      if (customStart) startDate = new Date(customStart);
+      if (customEnd) endDate = new Date(customEnd);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      break;
+    default:
+      startDate = new Date(0);
+      break;
+  }
+
+  return reports.filter((r) => {
+    if (!r.date) return true;
+    const reportDate = new Date(r.date);
+    return reportDate >= startDate && reportDate <= endDate;
+  });
+}
+
+function aggregateReports(reports) {
+  const result = {
+    totalSignals: 0,
+    tp: 0,
+    sl: 0,
+    running: 0,
+    winRate: 0,
+    totalReturn: 0,
+    bestTrade: null,
+    worstTrade: null,
+    positions: [],
+  };
+
+  let bestTrade = null;
+  let worstTrade = null;
+
+  reports.forEach((r) => {
+    const parsed = parseDailyReport(r.content);
+    result.totalSignals += parsed.newSignals;
+    result.tp += parsed.tp;
+    result.sl += parsed.sl;
+    result.running += parsed.running;
+    result.totalReturn += parsed.totalReturn;
+
+    // Best Trade hanya yang return > 0
+    if (parsed.bestTrade && parsed.bestTrade.return > 0) {
+      if (!bestTrade || parsed.bestTrade.return > bestTrade.return) {
+        bestTrade = parsed.bestTrade;
+      }
+    }
+
+    // Worst Trade tetap ambil yang terendah (bisa positif/negatif)
+    if (parsed.worstTrade) {
+      if (!worstTrade || parsed.worstTrade.return < worstTrade.return) {
+        worstTrade = parsed.worstTrade;
+      }
+    }
+
+    result.positions = result.positions.concat(parsed.positions);
+  });
+
+  result.bestTrade = bestTrade;
+  result.worstTrade = worstTrade;
+
+  const closed = result.tp + result.sl;
+  result.winRate = closed > 0 ? (result.tp / closed) * 100 : 0;
+  return result;
+}
+
+function getDateRangeText(filterType, customStart, customEnd) {
+  const now = new Date();
+  let start = new Date(now);
+  let end = new Date(now);
+
+  switch (filterType) {
+    case "today":
+      return `Today, ${now.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}`;
+    case "7days":
+      start.setDate(now.getDate() - 7);
+      return `${start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+    case "1month":
+      start.setMonth(now.getMonth() - 1);
+      return `${start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+    case "custom":
+      if (customStart && customEnd) {
+        const s = new Date(customStart);
+        const e = new Date(customEnd);
+        return `${s.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} - ${e.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+      }
+      return "Custom Range";
+    default:
+      return "All Time";
+  }
+}
+
+// ========== RENDER DAILY RETURN CHART ==========
+function renderDailyReturnChart(reports) {
+  const ctx = document.getElementById("dailyReturnChart");
+  if (!ctx) return;
+
+  if (window.returnChart) {
+    window.returnChart.destroy();
+  }
+
+  if (!reports || reports.length === 0) {
+    const parent = ctx.parentElement;
+    if (parent) {
+      parent.innerHTML =
+        '<div style="text-align:center;color:var(--text-secondary);padding:1.5rem;font-size:0.9rem;">Tidak ada data untuk ditampilkan.</div>';
+    }
+    return;
+  }
+
+  const labels = reports.map((r) => {
+    const title = r.title || "";
+    const match = title.match(/(\d+\s+\w+\s+\d{4})/);
+    return match ? match[1] : title;
+  });
+
+  const dailyReturns = reports.map((r) => {
+    const parsed = parseDailyReport(r.content);
+    return parsed.totalReturn || 0;
+  });
+
+  let cumulative = 0;
+  const cumulativeReturns = dailyReturns.map((ret) => {
+    cumulative += ret;
+    return cumulative;
+  });
+
+  const labelsWithStart = ["Start", ...labels];
+  const dataWithStart = [0, ...cumulativeReturns];
+
+  window.returnChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labelsWithStart,
+      datasets: [
+        {
+          label: "Cumulative Return %",
+          data: dataWithStart,
+          borderColor: "#8b5cf6",
+          backgroundColor: "rgba(139,92,246,0.1)",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointBackgroundColor: dataWithStart.map((r) =>
+            r >= 0 ? "#10b981" : "#ef4444",
+          ),
+          pointRadius: dataWithStart.length === 2 ? 8 : 5,
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              return "Cumulative Return: " + context.parsed.y.toFixed(2) + "%";
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          grid: { color: "rgba(255,255,255,0.05)" },
+          ticks: {
+            color: "#71717a",
+            callback: function (value) {
+              return value.toFixed(2) + "%";
+            },
+          },
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: "#71717a", maxRotation: 45, autoSkip: true },
+        },
+      },
+    },
+  });
+}
+
+// ========== UPDATE FUNCTIONS (HANYA UPDATE KONTEN) ==========
+function updateTradeSummaryUI(reports, filterType, customStart, customEnd) {
+  const filtered = filterReportsByDate(
+    reports,
+    filterType,
+    customStart,
+    customEnd,
+  );
+  const agg = aggregateReports(filtered);
+  const dateRange = getDateRangeText(filterType, customStart, customEnd);
+
+  const dateRangeEl = document.getElementById("reportDateRange");
+  if (dateRangeEl) dateRangeEl.textContent = dateRange;
+
+  const filterLabelEl = document.getElementById("filterLabel");
+  if (filterLabelEl) {
+    const labels = {
+      today: "Today",
+      "7days": "7 Hari",
+      "1month": "1 Bulan",
+      custom: "Custom",
+    };
+    filterLabelEl.textContent = labels[filterType] || "Today";
+  }
+
+  const statsContainer = document.getElementById("statsGridContainer");
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      ${createStatCard("Sinyal Baru", agg.totalSignals, "#3b82f6", "fa-solid fa-bell")}
+      ${createStatCard("TP", agg.tp, "#10b981", "fa-solid fa-check-circle")}
+      ${createStatCard("SL", agg.sl, "#ef4444", "fa-solid fa-times-circle")}
+      ${createStatCard("Running", agg.running, "#f59e0b", "fa-solid fa-play-circle")}
+      ${createStatCard("Win Rate", agg.winRate.toFixed(1) + "%", "#8b5cf6", "fa-solid fa-trophy")}
+      ${createStatCard("Total Return", agg.totalReturn.toFixed(2) + "%", agg.totalReturn >= 0 ? "#10b981" : "#ef4444", "fa-solid fa-arrow-trend-up")}
+    `;
+  }
+
+  const bestWorstContainer = document.getElementById("bestWorstContainer");
+  if (bestWorstContainer) {
+    bestWorstContainer.innerHTML = `
+      <div class="pro-card" style="border-left: 3px solid #10b981;">
+        <div class="pro-card-title"><i class="fa-solid fa-crown" style="color:#fbbf24; margin-right:0.3rem;"></i> Best Trade</div>
+        ${agg.bestTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#10b981;">${agg.bestTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">+${agg.bestTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
+      </div>
+      <div class="pro-card" style="border-left: 3px solid #ef4444;">
+        <div class="pro-card-title"><i class="fa-solid fa-skull" style="color:#ef4444; margin-right:0.3rem;"></i> Worst Trade</div>
+        ${agg.worstTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#ef4444;">${agg.worstTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">${agg.worstTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
+      </div>
+    `;
+  }
+
+  const positionsContainer = document.getElementById("positionsContainer");
+  if (positionsContainer) {
+    if (agg.positions.length) {
+      positionsContainer.innerHTML = `
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+          <i class="fa-solid fa-list" style="color:var(--text-secondary);"></i>
+          <span style="font-weight:600; font-size:1rem; color:var(--text-primary);">Posisi Berjalan</span>
+          <span style="font-size:0.7rem; color:var(--text-secondary); opacity:0.6;">(${agg.positions.length})</span>
+        </div>
+        <div class="sig-list" style="gap:0.4rem;">
+          ${agg.positions
+            .map(
+              (p, idx) => `
+            <div class="sig-list-row" style="cursor:default; min-height:64px;">
+              <div class="sig-list-logo">
+                <div class="stock-logo-wrapper" style="width:32px; height:32px;">
+                  <img src="https://assets.stockbit.com/logos/companies/${p.stock}.png" 
+                    alt="${p.stock}" class="stock-logo"
+                    onerror="this.onerror=null; this.src='https://assets.parqet.com/logos/symbol/${p.stock}.png'; this.onerror=function(){ this.style.display='none'; }">
+                  <div class="stock-logo-fallback" style="display:none; width:32px; height:32px; background:${getColorFromCode(p.stock)}; border-radius:4px; font-size:0.6rem; align-items:center; justify-content:center; color:#fff; font-weight:700;">${p.stock.substring(0, 2)}</div>
+                </div>
+              </div>
+              <div class="sig-list-name">
+                <div class="sig-name-row">
+                  <div class="sig-stock-info">
+                    <div class="sig-stock-top">
+                      <span class="sig-stock-code" style="font-size:0.85rem;">${p.stock}</span>
+                      <span class="conf-score-badge" style="font-size:0.55rem;"><i class="far fa-clock" style="margin-right:0.2rem;"></i>${p.hold} hari</span>
+                    </div>
+                    <div class="sig-stock-longname" style="font-size:0.6rem;">Entry ${fmtPrice(p.entry)}</div>
+                  </div>
+                  <div class="sig-right" style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0; margin-left:auto;">
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.05rem;">
+                      <span class="stock-price" style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">${p.current || "—"}</span>
+                      <span style="font-family:'JetBrains Mono'; font-size:0.6rem; color:${p.return >= 0 ? "#10b981" : "#ef4444"}; font-weight:600; display:flex; align-items:center; gap:0.2rem;">
+                        ${p.return >= 0 ? '<i class="fa-solid fa-arrow-trend-up" style="font-size:0.6rem; color:#10b981;"></i>' : '<i class="fa-solid fa-arrow-trend-down" style="font-size:0.6rem; color:#ef4444;"></i>'}
+                        ${p.return.toFixed(2)}%
+                      </span>
+                    </div>
+                    <span class="sig-status-stamp" style="width:20px; height:20px;">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="width:100%; height:100%;">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" />
+                        <polyline points="12 6 12 12 16 14" stroke="currentColor" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      `;
+    } else {
+      positionsContainer.innerHTML = "";
+    }
+  }
+
+  renderDailyReturnChart(filtered);
+}
+
+// ========== RENDER DAILY ==========
+let currentFilterState = {
+  type: "today",
+  customStart: null,
+  customEnd: null,
+  isOpen: false,
+};
+
+let cachedReports = [];
+
+// ===== Ambil rentang tanggal dari filter state =====
+function getDateRangeFromFilterState() {
+  const now = new Date();
+  let start, end;
+  switch (currentFilterState.type) {
+    case "today":
+      start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "7days":
+      start = new Date(now);
+      start.setDate(now.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "1month":
+      start = new Date(now);
+      start.setMonth(now.getMonth() - 1);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "custom":
+      if (currentFilterState.customStart && currentFilterState.customEnd) {
+        start = new Date(currentFilterState.customStart);
+        end = new Date(currentFilterState.customEnd);
+      } else {
+        start = new Date(0);
+        end = new Date(now);
+      }
+      break;
+    default:
+      start = new Date(0);
+      end = new Date(now);
+  }
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+  };
+}
+
+// ===== RENDER PERFORMANCE SIGNAL LIST (dengan filter tanggal) =====
+let currentDateRange = null;
+
+async function renderPerformanceSignalList(status) {
+  const container = document.getElementById("signalListContainer");
+  if (!container) return;
+
+  if (!currentDateRange) {
+    container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;">Pilih rentang tanggal terlebih dahulu.</div>`;
+    return;
+  }
+
+  const { start, end } = currentDateRange;
+
+  // Loading
+  container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Memuat...</div>`;
+
+  try {
+    const res = await fetch("/api/signals");
+    if (!res.ok) throw new Error("Gagal fetch signals");
+    const data = await res.json();
+    const running = data.running || [];
+    const closed = data.closed || [];
+    const allSignals = [...running, ...closed];
+
+    // Filter berdasarkan rentang tanggal
+    const filteredByDate = allSignals.filter((s) => {
+      if (!s.signalDate) return false;
+      const datePart = s.signalDate.split(" ")[0];
+      return datePart >= start && datePart <= end;
+    });
+
+    // Filter status
+    let filteredByStatus = [];
+    if (status === "TP") {
+      filteredByStatus = filteredByDate.filter((s) => s.status === "TP");
+    } else if (status === "SL") {
+      filteredByStatus = filteredByDate.filter(
+        (s) => s.status === "SL" || s.status === "STOP LOSS",
+      );
+    } else if (status === "RUNNING") {
+      filteredByStatus = filteredByDate.filter((s) => s.status === "RUNNING");
+    } else {
+      // ALL
+      filteredByStatus = filteredByDate;
+    }
+
+    // Update total count
+    const totalCountEl = document.getElementById("signalTotalCount");
+    if (totalCountEl) {
+      totalCountEl.textContent = filteredByStatus.length;
+    }
+
+    if (!filteredByStatus.length) {
+      container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;opacity:0.5;"><i class="fa-regular fa-circle" style="margin-right:0.3rem;"></i> Tidak ada sinyal dengan status ${status} pada periode ini</div>`;
+      return;
+    }
+
+    // Ambil harga & info
+    const symbols = [...new Set(filteredByStatus.map((s) => s.stockCode))];
+    const [priceResults, infoResults] = await Promise.all([
+      Promise.all(symbols.map((sym) => fetchStockPrice(sym))),
+      Promise.all(symbols.map((sym) => fetchStockInfo(sym))),
+    ]);
+    const priceMap = {};
+    const infoMap = {};
+    symbols.forEach((sym, idx) => {
+      priceMap[sym] = priceResults[idx];
+      infoMap[sym] = infoResults[idx];
+    });
+
+    let html = `<div class="sig-list">`;
+    html += renderSignalRows(filteredByStatus, priceMap, infoMap);
+    html += `</div>`;
+    container.innerHTML = html;
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    console.error("Gagal render performance list:", err);
+    container.innerHTML = `<div style="color:var(--danger);padding:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:0.3rem;"></i> Gagal memuat data</div>`;
+  }
+}
+
+function renderDaily(reports) {
+  const c = document.getElementById("daily");
+  if (!c) return;
+  if (!reports || !reports.length) {
+    c.innerHTML = `<div class="loading-state"><p>Belum ada laporan harian.</p></div>`;
+    return;
+  }
+
+  cachedReports = reports;
+
+  const latest = reports[reports.length - 1];
+  const title = latest.title || "Daily Report";
+
+  const filtered = filterReportsByDate(
+    reports,
+    currentFilterState.type,
+    currentFilterState.customStart,
+    currentFilterState.customEnd,
+  );
+  const agg = aggregateReports(filtered);
+  const dateRange = getDateRangeText(
+    currentFilterState.type,
+    currentFilterState.customStart,
+    currentFilterState.customEnd,
+  );
+
+  // Update currentDateRange untuk filter daftar saham
+  currentDateRange = getDateRangeFromFilterState();
+
+  const isOpen = currentFilterState.isOpen;
+  const filterLabel =
+    currentFilterState.type === "today"
+      ? "Today"
+      : currentFilterState.type === "7days"
+        ? "7 Hari"
+        : currentFilterState.type === "1month"
+          ? "1 Bulan"
+          : "Custom";
+
+  let html = `
+    <div class="pro-detail-container">
+      <!-- TRADE SUMMARY (di ATAS header) -->
+      <div id="tradeSummaryContainer" style="margin-bottom:0.5rem;">
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; cursor:pointer; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.06);" id="tradeSummaryToggle">
+          <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary); display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+            <i class="fas fa-chart-simple" style="color:#8b5cf6;"></i> Trade Summary
+            <span id="filterLabel" style="font-size:0.6rem; color:var(--text-secondary); background:rgba(255,255,255,0.05); padding:0.1rem 0.4rem; border-radius:6px;">
+              ${filterLabel}
+            </span>
+            <span id="filterDateRange" style="font-size:0.55rem; color:var(--text-secondary); opacity:0.5;">
+              ${dateRange}
+            </span>
+            <i class="fas fa-chevron-${isOpen ? "up" : "down"}" style="font-size:0.6rem; opacity:0.5; transition:transform 0.2s;"></i>
+          </span>
+        </div>
+        ${
+          isOpen
+            ? `
+        <div style="display:flex; align-items:center; gap:0.3rem; flex-wrap:wrap; margin-top:0.3rem; padding:0.3rem 0.4rem; background:rgba(255,255,255,0.02); border-radius:6px;">
+          <button class="filter-btn" data-filter="today" style="padding:0.15rem 0.4rem; border-radius:4px; border:1px solid var(--glass-border); background:${currentFilterState.type === "today" ? "rgba(255,255,255,0.1)" : "transparent"}; color:var(--text-primary); cursor:pointer; font-size:0.6rem; transition:0.2s;">Today</button>
+          <button class="filter-btn" data-filter="7days" style="padding:0.15rem 0.4rem; border-radius:4px; border:1px solid var(--glass-border); background:${currentFilterState.type === "7days" ? "rgba(255,255,255,0.1)" : "transparent"}; color:var(--text-primary); cursor:pointer; font-size:0.6rem; transition:0.2s;">7 Hari</button>
+          <button class="filter-btn" data-filter="1month" style="padding:0.15rem 0.4rem; border-radius:4px; border:1px solid var(--glass-border); background:${currentFilterState.type === "1month" ? "rgba(255,255,255,0.1)" : "transparent"}; color:var(--text-primary); cursor:pointer; font-size:0.6rem; transition:0.2s;">1 Bulan</button>
+          <button class="filter-btn" data-filter="custom" style="padding:0.15rem 0.4rem; border-radius:4px; border:1px solid var(--glass-border); background:${currentFilterState.type === "custom" ? "rgba(255,255,255,0.1)" : "transparent"}; color:var(--text-primary); cursor:pointer; font-size:0.6rem; transition:0.2s;">Custom</button>
+          ${
+            currentFilterState.type === "custom"
+              ? `
+          <div style="display:flex; gap:0.2rem; align-items:center; flex-wrap:wrap;">
+            <input type="date" id="customStartDate" value="${currentFilterState.customStart || ""}" style="background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:4px; padding:0.15rem 0.3rem; color:var(--text-primary); font-size:0.55rem; max-width:100px;">
+            <span style="color:var(--text-secondary); font-size:0.55rem;">s/d</span>
+            <input type="date" id="customEndDate" value="${currentFilterState.customEnd || ""}" style="background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:4px; padding:0.15rem 0.3rem; color:var(--text-primary); font-size:0.55rem; max-width:100px;">
+            <button id="applyCustomFilter" style="padding:0.15rem 0.4rem; border-radius:4px; background:rgba(59,130,246,0.2); border:1px solid #3b82f6; color:#3b82f6; cursor:pointer; font-size:0.55rem;">Terapkan</button>
+          </div>
+          `
+              : ""
+          }
+        </div>
+        `
+            : ""
+        }
+      </div>
+
+      <!-- HEADER -->
+      <div id="reportHeader" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.5rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+        <div class="emit-left">
+          <span class="emit-ticker" style="font-size:1.5rem;">
+            <i class="fas fa-chart-line" style="color:#3b82f6; margin-right:0.5rem;"></i> ${dateRange}
+          </span>
+          <span id="reportDateRange" style="font-size:0.8rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${dateRange}</span>
+        </div>
+        <div class="emit-right">
+          <span class="emit-date"><i class="far fa-calendar-alt" style="margin-right:0.3rem;"></i> ${new Date().toLocaleString("id-ID")}</span>
+        </div>
+      </div>
+
+      <!-- STATISTICS GRID -->
+      <div id="statsGridContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:1rem; margin-bottom:1.5rem;">
+        ${createStatCard("Sinyal Baru", agg.totalSignals, "#3b82f6", "fa-solid fa-bell")}
+        ${createStatCard("TP", agg.tp, "#10b981", "fa-solid fa-check-circle")}
+        ${createStatCard("SL", agg.sl, "#ef4444", "fa-solid fa-times-circle")}
+        ${createStatCard("Running", agg.running, "#f59e0b", "fa-solid fa-play-circle")}
+        ${createStatCard("Win Rate", agg.winRate.toFixed(1) + "%", "#8b5cf6", "fa-solid fa-trophy")}
+        ${createStatCard("Total Return", agg.totalReturn.toFixed(2) + "%", agg.totalReturn >= 0 ? "#10b981" : "#ef4444", "fa-solid fa-arrow-trend-up")}
+      </div>
+
+      <!-- BEST & WORST TRADE -->
+      <div id="bestWorstContainer" style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+        <div class="pro-card" style="border-left: 3px solid #10b981;">
+          <div class="pro-card-title"><i class="fa-solid fa-crown" style="color:#fbbf24; margin-right:0.3rem;"></i> Best Trade</div>
+          ${agg.bestTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#10b981;">${agg.bestTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">+${agg.bestTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
+        </div>
+        <div class="pro-card" style="border-left: 3px solid #ef4444;">
+          <div class="pro-card-title"><i class="fa-solid fa-skull" style="color:#ef4444; margin-right:0.3rem;"></i> Worst Trade</div>
+          ${agg.worstTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#ef4444;">${agg.worstTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">${agg.worstTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
+        </div>
+      </div>
+
+      <!-- CHART RETURN GAIN -->
+      <div class="pro-card" style="margin-bottom:1.5rem;">
+        <div class="pro-card-title"><i class="fa-solid fa-chart-line" style="margin-right:0.3rem;"></i> Cumulative Return Gain</div>
+        <div style="height:180px;">
+          <canvas id="dailyReturnChart"></canvas>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div class="pro-grid-2" style="margin-bottom:1.5rem;">
+        <div class="pro-card">
+          <div class="pro-card-title"><i class="fa-solid fa-chart-pie" style="margin-right:0.3rem;"></i> Win Rate</div>
+          <div style="height:140px; position:relative;">
+            <canvas id="dailyWinRateChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- DAFTAR SAHAM (collapse) -->
+<div style="margin-top:2rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:1.5rem;">
+  <div style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.06); transition:0.2s;" id="signalListToggle">
+    <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+      <i class="fas fa-list-ul" style="color:#8b5cf6;"></i> Daftar Saham
+      <span id="signalTotalCount" style="font-size:0.7rem; color:var(--text-secondary); background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;">0</span>
+    </span>
+    <i class="fas fa-chevron-down" id="signalListChevron" style="font-size:0.7rem; opacity:0.5; transition:transform 0.2s; margin-left:auto;"></i>
+  </div>
+  <div id="signalListBody" style="display:none; margin-top:0.75rem;">
+    <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.75rem; padding:0.2rem 0;">
+      <button class="perf-filter-btn active" data-status="TP" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+        <i class="fa-solid fa-arrow-trend-up" style="font-size:0.6rem;"></i> TP
+      </button>
+      <button class="perf-filter-btn" data-status="SL" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+        <i class="fa-solid fa-arrow-trend-down" style="font-size:0.6rem;"></i> SL
+      </button>
+      <button class="perf-filter-btn" data-status="RUNNING" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+        <i class="fa-solid fa-play" style="font-size:0.6rem;"></i> Running
+      </button>
+      <button class="perf-filter-btn" data-status="ALL" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+        <i class="fa-solid fa-table-cells-large" style="font-size:0.6rem;"></i> All
+      </button>
+    </div>
+    <div id="signalListContainer"></div>
+  </div>
+</div>
+    </div>
+  `;
+
+  c.innerHTML = html;
+
+  // Render charts
+  setTimeout(() => {
+    renderDailyReturnChart(filtered);
+    renderDailyCharts(agg);
+  }, 150);
+
+  // ========== EVENT LISTENERS ==========
+
+  // Toggle Trade Summary
+  const toggle = document.getElementById("tradeSummaryToggle");
+  if (toggle) {
+    toggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      currentFilterState.isOpen = !currentFilterState.isOpen;
+      renderDaily(reports);
+    });
+  }
+
+  // Filter Trade Summary (Today, 7 Hari, 1 Bulan, Custom)
+  c.querySelectorAll(".filter-btn").forEach((btn) => {
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const filter = this.dataset.filter;
+      if (filter === "custom") {
+        currentFilterState.type = "custom";
+        currentFilterState.isOpen = true;
+        renderDaily(reports);
+        return;
+      }
+      currentFilterState.type = filter;
+      currentFilterState.customStart = null;
+      currentFilterState.customEnd = null;
+      currentFilterState.isOpen = true;
+      renderDaily(reports);
+    });
+  });
+
+  // Apply custom filter
+  const applyBtn = document.getElementById("applyCustomFilter");
+  if (applyBtn) {
+    applyBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const start = document.getElementById("customStartDate").value;
+      const end = document.getElementById("customEndDate").value;
+      if (start && end) {
+        currentFilterState.type = "custom";
+        currentFilterState.customStart = start;
+        currentFilterState.customEnd = end;
+        currentFilterState.isOpen = true;
+        renderDaily(reports);
+      } else {
+        alert("Pilih tanggal mulai dan akhir");
+      }
+    });
+  }
+
+  // ===== DAFTAR SAHAM COLLAPSE =====
+  const listToggle = document.getElementById("signalListToggle");
+  const listBody = document.getElementById("signalListBody");
+  const chevron = document.getElementById("signalListChevron");
+  if (listToggle && listBody && chevron) {
+    listToggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const isOpen = listBody.style.display !== "none";
+      listBody.style.display = isOpen ? "none" : "block";
+      chevron.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
+      // Jika baru dibuka dan belum ada data, load default (TP)
+      if (!isOpen) {
+        const activeBtn = document.querySelector(".perf-filter-btn.active");
+        if (activeBtn) {
+          renderPerformanceSignalList(activeBtn.dataset.status);
+        } else {
+          renderPerformanceSignalList("TP");
+        }
+      }
+    });
+  }
+
+  // Event listener untuk tombol filter status di Daftar Saham
+  c.querySelectorAll(".perf-filter-btn").forEach((btn) => {
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const status = this.dataset.status;
+      c.querySelectorAll(".perf-filter-btn").forEach((b) =>
+        b.classList.remove("active"),
+      );
+      this.classList.add("active");
+      renderPerformanceSignalList(status);
+    });
+  });
+
+  // Load default saat pertama kali render (jika daftar saham terbuka)
+  setTimeout(() => {
+    const activeBtn = document.querySelector(".perf-filter-btn.active");
+    if (activeBtn && listBody && listBody.style.display !== "none") {
+      renderPerformanceSignalList(activeBtn.dataset.status);
+    }
+  }, 300);
+}
+
+// ========== RENDER DAILY CHARTS (Win Rate & Distribusi) ==========
+function renderDailyCharts(parsed) {
+  const ctxWin = document.getElementById("dailyWinRateChart");
+  if (ctxWin) {
+    new Chart(ctxWin, {
+      type: "doughnut",
+      data: {
+        datasets: [
+          {
+            data: [parsed.winRate, 100 - parsed.winRate],
+            backgroundColor: ["#10b981", "rgba(255,255,255,0.05)"],
+            borderWidth: 0,
+            cutout: "70%",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return ctx.parsed + "%";
+              },
+            },
+          },
+        },
+      },
+      plugins: [
+        {
+          id: "winRateText",
+          beforeDraw: function (chart) {
+            const {
+              ctx,
+              chartArea: { width, height, top, left },
+            } = chart;
+            ctx.save();
+            ctx.font = 'bold 1.2rem "JetBrains Mono"';
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "center";
+            ctx.fillText(
+              parsed.winRate + "%",
+              left + width / 2,
+              top + height / 2 + 5,
+            );
+            ctx.restore();
+          },
+        },
+      ],
+    });
+  }
+
+  const ctxSignal = document.getElementById("dailySignalChart");
+  if (ctxSignal) {
+    new Chart(ctxSignal, {
+      type: "bar",
+      data: {
+        labels: ["New", "TP", "SL", "Running"],
+        datasets: [
+          {
+            data: [parsed.newSignals, parsed.tp, parsed.sl, parsed.running],
+            backgroundColor: ["#3b82f6", "#10b981", "#ef4444", "#f59e0b"],
+            borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: "rgba(255,255,255,0.05)" },
+            ticks: { color: "#71717a" },
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: "#71717a" },
+          },
+        },
+      },
+    });
+  }
+}
+
+// ========== SORTED SIGNALS (KONSISTEN) ==========
+function getSortedSignals() {
+  const allSignals = [
+    ..._allRunning.map((s) => ({ ...s, _type: "running" })),
+    ..._allClosed.map((s) => ({ ...s, _type: "closed" })),
+  ];
+
+  const priority = {
+    "STRONG BUY": 1,
+    BUY: 2,
+    WATCHLIST: 3,
+    SELL: 4,
+    "STRONG SELL": 5,
+  };
+
+  allSignals.sort((a, b) => {
+    const pa = priority[a.signalType] || 99;
+    const pb = priority[b.signalType] || 99;
+    if (pa !== pb) return pa - pb;
+    if (b.confidenceScore !== a.confidenceScore)
+      return (b.confidenceScore || 0) - (a.confidenceScore || 0);
+    if (a.signalDate && b.signalDate)
+      return b.signalDate.localeCompare(a.signalDate);
+    return (a.stockCode || "").localeCompare(b.stockCode || "");
+  });
+
+  return allSignals;
+}
+
+// ========== SESI WAKTU ==========
+function getSessionFromDate(signalDate) {
+  if (!signalDate) return null;
+
+  const date = new Date(signalDate);
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const time = hour + minute / 60;
+
+  if (time >= 4 && time < 12) return 1;
+  if (time >= 12 && time <= 16) return 2;
+
+  return null;
+}
+
+// ========== SIGNAL LIST ==========
+async function renderSignals(running, closed) {
+  _allRunning = running || [];
+  _allClosed = closed || [];
+  await showSignalList();
+}
+
+function getColorFromCode(code) {
+  const colors = [
+    "#10b981",
+    "#3b82f6",
+    "#f59e0b",
+    "#ef4444",
+    "#8b5cf6",
+    "#ec4899",
+    "#14b8a6",
+    "#f97316",
+    "#6366f1",
+    "#06b6d4",
+  ];
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) {
+    hash = code.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+const hitSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <filter id="grunge-texture" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="1" result="noise" />
+      <feColorMatrix type="matrix" values="0 0 0 0 1
+                                             0 0 0 0 1
+                                             0 0 0 0 1
+                                             0 0 0 1 0" result="colored-noise" />
+      <feComposite operator="in" in="SourceGraphic" in2="colored-noise" result="masked-stamp" />
+      <feMerge>
+        <feMergeNode in="masked-stamp" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g id="hit-stamp-bg" filter="url(#grunge-texture)">
+    <circle cx="100" cy="100" r="90" fill="none" stroke="#00FF66" stroke-width="10" />
+    <circle cx="100" cy="100" r="68" fill="none" stroke="#00FF66" stroke-width="8" />
+    <rect x="5" y="65" width="190" height="70" rx="12" ry="12" fill="#00FF66" transform="rotate(-15 100 100)" />
+  </g>
+  
+  <text x="100" y="113" text-anchor="middle" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="42" fill="#FFFFFF" transform="rotate(-15 100 100)">HIT</text>
+</svg>
+`;
+
+const missedSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <filter id="grunge-texture" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="1" result="noise" />
+      <feColorMatrix type="matrix" values="0 0 0 0 1
+                                             0 0 0 0 1
+                                             0 0 0 0 1
+                                             0 0 0 1 0" result="colored-noise" />
+      <feComposite operator="in" in="SourceGraphic" in2="colored-noise" result="masked-stamp" />
+      <feMerge>
+        <feMergeNode in="masked-stamp" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g id="missed-stamp-bg" filter="url(#grunge-texture)">
+    <circle cx="100" cy="100" r="90" fill="none" stroke="#FF1A1A" stroke-width="10" />
+    <circle cx="100" cy="100" r="68" fill="none" stroke="#FF1A1A" stroke-width="8" />
+    <rect x="5" y="65" width="190" height="70" rx="12" ry="12" fill="#FF1A1A" transform="rotate(-15 100 100)" />
+  </g>
+  
+  <text x="100" y="111" text-anchor="middle" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="32" fill="#FFFFFF" transform="rotate(-15 100 100)">MISSED</text>
+</svg>
+`;
+
+// ===== RENDER ROWS (helper) =====
+function renderSignalRows(signals, priceMap, infoMap) {
+  let rows = "";
+  signals.forEach((s) => {
+    let priceDisplay = "—";
+    let gainStr = "";
+    let gainColor = "";
+    let arrowIcon = "";
+    let arrowPrice = "";
+    let statusBadge = "";
+
+    if (s.status === "TP") {
+      const exitPrice = s.exitPrice || s.tp1;
+      const priceVal = exitPrice != null ? fmtPriceNoRp(exitPrice) : "—";
+      const ret = s.returnPercent || 0;
+      const sign = ret >= 0 ? "+" : "";
+      gainStr = `${sign}${ret.toFixed(2)}%`;
+      gainColor = ret >= 0 ? "#10b981" : "#ef4444";
+      arrowIcon =
+        ret >= 0
+          ? `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`
+          : `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+
+      arrowPrice =
+        ret >= 0
+          ? `<i class="fa-solid fa-arrow-up" style="font-size:0.6rem; color:#10b981; margin-right:0.1rem;"></i>`
+          : `<i class="fa-solid fa-arrow-down" style="font-size:0.6rem; color:#ef4444; margin-right:0.1rem;"></i>`;
+
+      priceDisplay = `${arrowPrice} ${priceVal}`;
+      statusBadge = `<span class="sig-status-stamp">${hitSvg}</span>`;
+    } else if (s.status === "SL" || s.status === "STOP LOSS") {
+      const exitPrice = s.exitPrice || s.sl;
+      const priceVal = exitPrice != null ? fmtPriceNoRp(exitPrice) : "—";
+      const ret = s.returnPercent || 0;
+      const sign = ret >= 0 ? "+" : "";
+      gainStr = `${sign}${ret.toFixed(2)}%`;
+      gainColor = ret >= 0 ? "#10b981" : "#ef4444";
+      arrowIcon =
+        ret >= 0
+          ? `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`
+          : `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+
+      arrowPrice =
+        ret >= 0
+          ? `<i class="fa-solid fa-arrow-up" style="font-size:0.6rem; color:#10b981; margin-right:0.1rem;"></i>`
+          : `<i class="fa-solid fa-arrow-down" style="font-size:0.6rem; color:#ef4444; margin-right:0.1rem;"></i>`;
+
+      priceDisplay = `${arrowPrice} ${priceVal}`;
+      statusBadge = `<span class="sig-status-stamp">${missedSvg}</span>`;
+    } else {
+      const currentPrice = priceMap[s.stockCode];
+      const priceVal = currentPrice != null ? fmtPriceNoRp(currentPrice) : "—";
+      priceDisplay = priceVal;
+      const isRunning = s.status === "RUNNING" && s.entryPrice && currentPrice;
+      if (isRunning) {
+        const gainAbs = currentPrice - s.entryPrice;
+        const gainPct = (gainAbs / s.entryPrice) * 100;
+        const absGain = Math.abs(gainAbs).toFixed(0);
+        const absPct = Math.abs(gainPct).toFixed(2);
+        if (Math.abs(gainAbs) < 0.01) {
+          gainColor = "var(--text-secondary)";
+          gainStr = `0 (0.00%)`;
+          arrowIcon = "";
+        } else if (gainAbs > 0) {
+          arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
+          gainColor = "#10b981";
+          gainStr = `${arrowIcon} ${absGain} (+${absPct}%)`;
+        } else {
+          arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+          gainColor = "#ef4444";
+          gainStr = `${arrowIcon} ${absGain} (-${absPct}%)`;
+        }
+      } else {
+        gainStr = "—";
+        gainColor = "var(--text-secondary)";
+        arrowIcon = "";
+      }
+    }
+
+    const info = infoMap[s.stockCode] || { longName: s.stockCode };
+    const stockbitUrl = `https://assets.stockbit.com/logos/companies/${s.stockCode}.png`;
+    const parqetUrl = `https://assets.parqet.com/logos/symbol/${s.stockCode}.png`;
+    const bgColor = getColorFromCode(s.stockCode);
+    const logoHtml = `
+      <div class="stock-logo-wrapper">
+        <img src="${stockbitUrl}" alt="${s.stockCode}" class="stock-logo"
+          onerror="this.onerror=null; this.src='${parqetUrl}'; this.onerror=function(){ this.style.display='none'; this.nextElementSibling.style.display='flex'; }">
+        <div class="stock-logo-fallback" style="display:none; background:${bgColor};">${s.stockCode.substring(0, 2)}</div>
+      </div>
+    `;
+
+    const confidence = s.confidenceScore || 0;
+    let scoreClass = "normal";
+    if (confidence >= 8) scoreClass = "high";
+    else if (confidence >= 5) scoreClass = "normal";
+    else if (confidence >= 3) scoreClass = "low";
+    else scoreClass = "skip";
+    const confBadge = `<span class="conf-score-badge" data-score="${scoreClass}">${confidence}/10</span>`;
+
+    rows += `<div class="sig-list-row" data-stock="${s.stockCode}" data-date="${s.signalDate}" onclick="showSignalDetailByStock('${s.stockCode}','${s.signalDate}')">
+      ${logoHtml}
+      <div class="sig-list-name">
+        <div class="sig-name-row">
+          <div class="sig-stock-info">
+            <div class="sig-stock-top">
+              <span class="sig-stock-code">${escapeHtml(s.stockCode)}</span>
+              ${confBadge}
+            </div>
+            <div class="sig-stock-longname">${escapeHtml(info.longName)}</div>
+          </div>
+          <div class="sig-right" style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0; margin-left:auto;">
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.1rem;">
+              <span class="stock-price" style="font-size:0.9rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:0.1rem;">${priceDisplay}</span>
+              <span style="font-family:'JetBrains Mono'; font-size:0.65rem; color:${gainColor}; font-weight:600; display:flex; align-items:center; gap:0.2rem;">${gainStr}</span>
+            </div>
+            ${statusBadge}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+  return rows;
+}
+
+// ===== SHOW SIGNAL LIST =====
+async function showSignalList() {
+  isDetailView = false;
+  currentDetailIndex = null;
+  const container = document.getElementById("signals");
+  if (!container) return;
+
+  if (currentSignalFilter === "none" || currentSignalFilter === null) {
+    container.innerHTML = `...`;
+    return;
+  }
+
+  const allSignals = getSortedSignals();
+
+  if (!allSignals.length) {
+    container.innerHTML = `<div class="loading-state"><p>Belum ada sinyal.</p></div>`;
+    return;
+  }
+
+  let filteredSignals = [];
+  let filterType = currentSignalFilter;
+  if (filterType === "today") {
+    // FIX: pakai WIB
+    const today = getTodayWIB();
+    filteredSignals = allSignals.filter(
+      (s) => s.signalDate && s.signalDate.startsWith(today),
+    );
+  } else if (filterType === "running") {
+    filteredSignals = allSignals.filter((s) => s.status === "RUNNING");
+  } else {
+    filteredSignals = allSignals;
+  }
+
+  if (!filteredSignals.length) {
+    container.innerHTML = `<div class="loading-state"><p>Tidak ada sinyal untuk filter ini.</p></div>`;
+    return;
+  }
+
+  const symbols = [...new Set(filteredSignals.map((s) => s.stockCode))];
+  const [priceResults, infoResults] = await Promise.all([
+    Promise.all(symbols.map((sym) => fetchStockPrice(sym))),
+    Promise.all(symbols.map((sym) => fetchStockInfo(sym))),
+  ]);
+  const priceMap = {};
+  const infoMap = {};
+  symbols.forEach((sym, idx) => {
+    priceMap[sym] = priceResults[idx];
+    infoMap[sym] = infoResults[idx];
+  });
+
+  let totalGainPct = 0;
+  let totalRunningCount = 0;
+  filteredSignals.forEach((s) => {
+    let gainPct = 0;
+    if (s.status === "TP" || s.status === "SL" || s.status === "STOP LOSS") {
+      gainPct = s.returnPercent || 0;
+      if (gainPct !== 0) {
+        totalGainPct += gainPct;
+        totalRunningCount++;
+      }
+    } else if (
+      s.status === "RUNNING" &&
+      s.entryPrice &&
+      priceMap[s.stockCode]
+    ) {
+      const currentPrice = priceMap[s.stockCode];
+      gainPct = ((currentPrice - s.entryPrice) / s.entryPrice) * 100;
+      if (gainPct !== 0) {
+        totalGainPct += gainPct;
+        totalRunningCount++;
+      }
+    }
+  });
+
+  let avgGainPct = totalRunningCount > 0 ? totalGainPct / totalRunningCount : 0;
+  let totalGainStr = "";
+  let totalGainColor = "";
+  let arrowIconTotal = "";
+  if (totalRunningCount > 0) {
+    const sign = avgGainPct >= 0 ? "+" : "";
+    totalGainStr = `${sign}${avgGainPct.toFixed(2)}%`;
+    totalGainColor = avgGainPct >= 0 ? "#10b981" : "#ef4444";
+    if (avgGainPct > 0.01) {
+      arrowIconTotal = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
+    } else if (avgGainPct < -0.01) {
+      arrowIconTotal = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+    }
+  } else {
+    totalGainStr = "—";
+    totalGainColor = "var(--text-secondary)";
+    arrowIconTotal = "";
+  }
+
+  let headerTitle =
+    filterType === "today"
+      ? "SINYAL HARI INI"
+      : filterType === "running"
+        ? "ALL RUNNING"
+        : "SAHAM";
+  let html = `
+    <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
+      <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+        ${headerTitle}
+        <span style="font-weight:400; color:var(--text-secondary); opacity:0.6;">(${filteredSignals.length})</span>
+      </span>
+      <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+        GAIN: ${arrowIconTotal} <span style="font-weight:600; color:${totalGainColor};">${totalGainStr}</span>
+      </span>
+    </div>
+    <div class="sig-list">
+  `;
+
+  if (filterType === "today") {
+    const session1 = filteredSignals.filter(
+      (s) => getSessionFromDate(s.signalDate) === 1,
+    );
+    const session2 = filteredSignals.filter(
+      (s) => getSessionFromDate(s.signalDate) === 2,
+    );
+    const other = filteredSignals.filter(
+      (s) => getSessionFromDate(s.signalDate) === null,
+    );
+
+    if (session1.length) {
+      html += `<div class="session-header">SESI 1</span></div>`;
+      html += renderSignalRows(session1, priceMap, infoMap);
+    }
+    if (session2.length) {
+      html += `<div class="session-header">SESI 2</span></div>`;
+      html += renderSignalRows(session2, priceMap, infoMap);
+    }
+    if (other.length) {
+      html += `<div class="session-header">LAINNYA</div>`;
+      html += renderSignalRows(other, priceMap, infoMap);
+    }
+  } else {
+    html += renderSignalRows(filteredSignals, priceMap, infoMap);
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+  window.scrollTo(0, 0);
+}
+
+// ===== SHOW DETAIL BY STOCK =====
+async function showSignalDetailByStock(stockCode, signalDate) {
+  const allSignals = getSortedSignals();
+  const idx = allSignals.findIndex(
+    (s) => s.stockCode === stockCode && s.signalDate === signalDate,
+  );
+  if (idx !== -1) {
+    await showSignalDetail(idx);
+  } else {
+    console.warn("Signal not found:", stockCode, signalDate);
+  }
+}
+
+// ========== DETAIL SIGNAL ==========
+async function showSignalDetail(index) {
+  isDetailView = true;
+  currentDetailIndex = index;
+  const allSignals = getSortedSignals();
+  const s = allSignals[index];
+  if (!s) return;
+
+  const container = document.getElementById("signals");
+
+  let stockInfo = { longName: s.stockCode, logoUrl: null };
+  let currentPrice = null;
+  try {
+    currentPrice = await fetchStockPrice(s.stockCode);
+  } catch (e) {
+    console.warn(`Gagal fetch current price ${s.stockCode}:`, e);
+  }
+
+  let gainAbs = 0;
+  let gainPct = 0;
+  let gainStr = "";
+  let gainColor = "";
+  let arrowIcon = "";
+  let isRunning = s.status === "RUNNING" && s.entryPrice && currentPrice;
+
+  if (isRunning) {
+    gainAbs = currentPrice - s.entryPrice;
+    gainPct = (gainAbs / s.entryPrice) * 100;
+    const absGain = Math.abs(gainAbs).toFixed(0);
+    const absPct = Math.abs(gainPct).toFixed(2);
+
+    if (Math.abs(gainAbs) < 0.01) {
+      gainColor = "var(--text-secondary)";
+      gainStr = `0 (0.00%)`;
+      arrowIcon = "";
+    } else if (gainAbs > 0) {
+      arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
+      gainColor = "#10b981";
+      gainStr = `${arrowIcon} ${absGain} (+${absPct}%)`;
+    } else {
+      arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+      gainColor = "#ef4444";
+      gainStr = `${arrowIcon} ${absGain} (-${absPct}%)`;
+    }
+  } else if (s.status === "RUNNING" && !currentPrice) {
+    gainStr = "—";
+    gainColor = "var(--text-secondary)";
+  } else {
+    // Untuk status TP/SL, pakai returnPercent
+    if (s.status === "TP" || s.status === "SL") {
+      const ret = s.returnPercent || 0;
+      const sign = ret >= 0 ? "+" : "";
+      gainStr = `${sign}${ret.toFixed(2)}%`;
+      gainColor = ret >= 0 ? "#10b981" : "#ef4444";
+      if (ret > 0.01) {
+        arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
+      } else if (ret < -0.01) {
+        arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+      }
+    } else {
+      gainStr = "—";
+      gainColor = "var(--text-secondary)";
+      arrowIcon = "";
+    }
+  }
+
+  // ===== HARGA DENGAN ARROW UP/DOWN =====
+  let displayPrice = "—";
+  let priceArrow = "";
+
+  if (s.status === "TP" && s.exitPrice) {
+    displayPrice = Number(s.exitPrice).toLocaleString("id-ID");
+    const ret = s.returnPercent || 0;
+    if (ret > 0) {
+      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    } else if (ret < 0) {
+      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    }
+  } else if (s.status === "SL" && s.exitPrice) {
+    displayPrice = Number(s.exitPrice).toLocaleString("id-ID");
+    const ret = s.returnPercent || 0;
+    if (ret > 0) {
+      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    } else if (ret < 0) {
+      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    }
+  } else if (currentPrice != null) {
+    displayPrice = Number(currentPrice).toLocaleString("id-ID");
+    if (gainAbs > 0) {
+      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    } else if (gainAbs < 0) {
+      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    }
+  }
+
+  // ===== STAMP HIT / MISSED (diperkecil) =====
+  let statusStamp = "";
+  if (s.status === "TP") {
+    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${hitSvg}</span>`;
+  } else if (s.status === "SL" || s.status === "STOP LOSS") {
+    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${missedSvg}</span>`;
+  }
+
+  try {
+    const info = await fetchStockInfo(s.stockCode);
+    if (info) stockInfo = info;
+  } catch (e) {}
+
+  function getColorFromCode(code) {
+    const colors = [
+      "#10b981",
+      "#3b82f6",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#ec4899",
+      "#14b8a6",
+      "#f97316",
+      "#6366f1",
+      "#06b6d4",
+    ];
+    let hash = 0;
+    for (let i = 0; i < code.length; i++) {
+      hash = code.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  const logoUrl = `https://assets.stockbit.com/logos/companies/${s.stockCode}.png`;
+  const parqetUrl = `https://assets.parqet.com/logos/symbol/${s.stockCode}.png`;
+  const bgColor = getColorFromCode(s.stockCode);
+
+  const logoHtml = `
+  <span class="detail-logo-text">
+    <img 
+      src="${logoUrl}" 
+      alt="${s.stockCode}" 
+      style="width:50px; height:64px; object-fit:contain; border:none; background:transparent; display:block;"
+      onerror="this.onerror=null; this.src='${parqetUrl}'; this.onerror=function(){ this.style.display='none'; this.nextElementSibling.style.display='inline-block'; }"
+    >
+    <span style="display:none; width:64px; height:64px; line-height:64px; text-align:center; background:${bgColor}; color:#fff; font-size:1.1rem; font-weight:700; font-family:'JetBrains Mono',monospace;">
+      ${s.stockCode.substring(0, 2)}
+    </span>
+  </span>
+`;
+  const tagHtml = renderTagHtml(s, false);
+
+  // ===== SIGNAL TYPE =====
+  const signalLabel = s.signalType || "WATCHLIST";
+  const upperLabel = signalLabel.toUpperCase();
+  const isStrongBuy = upperLabel.includes("STRONG BUY");
+  const isStrongSell = upperLabel.includes("STRONG SELL");
+  const isBuy = upperLabel.includes("BUY") && !isStrongBuy;
+  const isSell = upperLabel.includes("SELL") && !isStrongSell;
+  const isWatch =
+    upperLabel.includes("WATCH") ||
+    (!isBuy && !isSell && !isStrongBuy && !isStrongSell);
+
+  let signalIcon, signalBg, signalBorder, signalLabelText, signalDesc;
+
+  if (isStrongBuy) {
+    signalIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:28px; color:#fbbf24;"></i>`;
+    signalBg = "linear-gradient(135deg, #fbbf2415, #fbbf2405)";
+    signalBorder = "#fbbf24";
+    signalLabelText = "STRONG BUY";
+    signalDesc = "Strong Bullish";
+  } else if (isStrongSell) {
+    signalIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:28px; color:#dc2626;"></i>`;
+    signalBg = "linear-gradient(135deg, #dc262615, #dc262605)";
+    signalBorder = "#dc2626";
+    signalLabelText = "STRONG SELL";
+    signalDesc = "Strong Bearish";
+  } else if (isBuy) {
+    signalIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:28px;"></i>`;
+    signalBg = "linear-gradient(135deg, #10b98115, #10b98105)";
+    signalBorder = "#10b981";
+    signalLabelText = "BUY";
+    signalDesc = "Bullish";
+  } else if (isSell) {
+    signalIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:28px;"></i>`;
+    signalBg = "linear-gradient(135deg, #ef444415, #ef444405)";
+    signalBorder = "#ef4444";
+    signalLabelText = "SELL";
+    signalDesc = "Bearish";
+  } else {
+    signalIcon = `<i class="fa-regular fa-eye" style="font-size:26px;"></i>`;
+    signalBg = "linear-gradient(135deg, #71717a15, #71717a05)";
+    signalBorder = "#71717a";
+    signalLabelText = "WATCH";
+    signalDesc = "Monitor";
+  }
+
+  const signalVisual = `
+  <div class="pro-card" style="margin-bottom:0.5rem; background:${signalBg}; border:1px solid ${signalBorder}33; transition:all 0.3s; padding:0.75rem 1rem;">
+    <div style="display:flex; align-items:center; gap:1.25rem;">
+      <div style="
+        width:60px; height:60px; 
+        border-radius:50%; 
+        background:${signalBorder}15;
+        border:2px solid ${signalBorder};
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0;
+        color:${signalBorder};
+      ">
+        ${signalIcon}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:0.6rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-secondary);">Signal Type</div>
+        <div style="font-family:'JetBrains Mono'; font-weight:700; font-size:1.5rem; color:${signalBorder}; line-height:1.2;">
+          ${signalLabelText}
+          <span style="font-size:0.8rem; font-weight:400; color:var(--text-secondary); margin-left:0.5rem;">
+            ${signalLabel}
+          </span>
+        </div>
+      </div>
+      <div style="
+        font-size:0.6rem; 
+        background:${signalBorder}15; 
+        color:${signalBorder}; 
+        padding:4px 14px; 
+        border-radius:20px; 
+        border:1px solid ${signalBorder}25;
+        text-transform:uppercase;
+        letter-spacing:0.05em;
+        font-weight:600;
+      ">
+        ${signalDesc}
+      </div>
+    </div>
+  </div>
+  `;
+
+  const score = s.confidenceScore || 0;
+  const maxScore = 10;
+  const pct = (score / maxScore) * 100;
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference - (pct / 100) * circumference;
+
+  let confColor, confLabel, confTier, confDesc, confIcon;
+  if (score >= 8) {
+    confColor = "#10b981";
+    confLabel = "HIGH";
+    confTier = "High Conviction";
+    confDesc = "Setup sangat kuat. Teknikal solid + institusi aktif akumulasi.";
+    confIcon = `<i class="fa-solid fa-star" style="color:#fbbf24; font-size:14px; margin-right:4px;"></i>`;
+  } else if (score >= 5) {
+    confColor = "#ffffff";
+    confLabel = "NORMAL";
+    confTier = "Normal";
+    confDesc = "Setup cukup baik dengan beberapa faktor pendukung.";
+    confIcon = `<i class="fa-regular fa-circle-check" style="color:#a1a1aa; font-size:14px; margin-right:4px;"></i>`;
+  } else if (score >= 3) {
+    confColor = "#f97316";
+    confLabel = "LOW";
+    confTier = "Low";
+    confDesc = "Faktor pendukung minim. Butuh konfirmasi tambahan.";
+    confIcon = `<i class="fa-regular fa-circle" style="color:#f97316; font-size:14px; margin-right:4px;"></i>`;
+  } else {
+    confColor = "#ef4444";
+    confLabel = "SKIP";
+    confTier = "Skip";
+    confDesc = "Tidak memenuhi standar minimum — difilter otomatis.";
+    confIcon = `<i class="fa-regular fa-circle-xmark" style="color:#ef4444; font-size:14px; margin-right:4px;"></i>`;
+  }
+
+  let breakdownList = "";
+  if (s.confidenceDetails && s.confidenceDetails.length > 0) {
+    breakdownList = `<div style="margin-top:0.75rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:0.75rem;">`;
+    s.confidenceDetails.forEach((d) => {
+      const isPos = d.trim().startsWith("+");
+      const icon = isPos
+        ? `<i class="fa-solid fa-circle-check" style="color:#10b981; font-size:14px;"></i>`
+        : `<i class="fa-solid fa-circle-xmark" style="color:#ef4444; font-size:14px;"></i>`;
+      breakdownList += `<div style="display:flex; align-items:center; font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.35rem; gap:0.5rem;">
+        <span style="opacity:0.8; flex-shrink:0; width:18px; text-align:center;">${icon}</span>
+        <span>${escapeHtml(d.trim())}</span>
+      </div>`;
+    });
+    breakdownList += `</div>`;
+  }
+
+  const confVisual = `
+    <div class="pro-card" style="position:relative;">
+      <div class="pro-card-title">
+        <i class="fa-solid fa-gauge-high" style="font-size:16px; margin-right:6px;"></i>
+        AI Confidence
+      </div>
+      <div style="display:flex; align-items:center; gap:1.5rem; padding:0.25rem 0 0.25rem 0;">
+        <div style="position:relative; width:110px; height:110px; flex-shrink:0;">
+          <svg viewBox="0 0 100 100" style="transform:rotate(-90deg); width:100%; height:100%;">
+            <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+            <defs>
+              <linearGradient id="confGrad_${index}" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="${score >= 8 ? "#10b981" : score >= 5 ? "#a1a1aa" : score >= 3 ? "#f97316" : "#ef4444"}" />
+                <stop offset="100%" stop-color="${score >= 8 ? "#34d399" : score >= 5 ? "#e4e4e7" : score >= 3 ? "#fb923c" : "#dc2626"}" />
+              </linearGradient>
+            </defs>
+            <circle cx="50" cy="50" r="40" fill="none" stroke="url(#confGrad_${index})" stroke-width="8"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"
+              style="transition: stroke-dashoffset 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);"
+            />
+          </svg>
+          <div style="
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            font-family:'JetBrains Mono'; font-weight:700; font-size:1.6rem; 
+            color:${confColor}; text-align:center; line-height:1;
+          ">
+            ${score}<span style="font-size:0.5rem; color:var(--text-secondary); font-weight:400;">/10</span>
+          </div>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <span style="font-family:'JetBrains Mono'; font-weight:600; font-size:1rem; color:${confColor}; display:flex; align-items:center;">
+              ${confIcon} ${confLabel}
+            </span>
+            <span style="font-size:0.5rem; background:${confColor}15; color:${confColor}; padding:1px 8px; border-radius:12px; border:1px solid ${confColor}20; font-weight:500;">
+              ${confTier}
+            </span>
+          </div>
+          <div style="font-size:0.65rem; color:var(--text-secondary); margin-top:0.3rem; opacity:0.75; line-height:1.3;">
+            ${confDesc}
+          </div>
+          ${score < 3 ? `<div style="font-size:0.55rem; color:#ef4444; margin-top:0.2rem; opacity:0.6;"><i class="fa-solid fa-triangle-exclamation"></i> Sinyal tidak dikirim — difilter otomatis</div>` : ""}
+        </div>
+      </div>
+      ${breakdownList}
+    </div>
+  `;
+
+  let betaVisual = "";
+  if (s.beta != null) {
+    const betaData = [
+      { range: "< 0.5 (Defensif)", wr: "50.0%", ev: "-0.09%" },
+      { range: "0.5-0.8 (Low)", wr: "73.6%", ev: "+2.02%" },
+      { range: "0.8-1.2 (Market)", wr: "75.4%", ev: "+1.83%" },
+      { range: "1.2-1.8 (High)", wr: "66.7%", ev: "+1.09%" },
+      { range: "> 1.8 (Very High)", wr: "81.8%", ev: "+4.85%" },
+    ];
+
+    let rangeIndex = 0;
+    let betaLabel = "";
+    if (s.beta < 0.5) {
+      rangeIndex = 0;
+      betaLabel = "Defensif";
+    } else if (s.beta < 0.8) {
+      rangeIndex = 1;
+      betaLabel = "Low";
+    } else if (s.beta < 1.2) {
+      rangeIndex = 2;
+      betaLabel = "Market";
+    } else if (s.beta < 1.8) {
+      rangeIndex = 3;
+      betaLabel = "High";
+    } else {
+      rangeIndex = 4;
+      betaLabel = "Very High";
+    }
+
+    const isHighVol = s.beta >= 1.8;
+    const isLowVol = s.beta < 0.5;
+    const isOptimal = s.beta >= 0.8 && s.beta <= 2.0;
+
+    let barColor = "#f59e0b";
+    if (isHighVol) barColor = "#10b981";
+    else if (isLowVol) barColor = "#ef4444";
+    else if (isOptimal) barColor = "#3b82f6";
+
+    let recommendation = "";
+    if (isHighVol) {
+      recommendation =
+        "Beta > 1.8 → Volatilitas tinggi, pergerakan cepat ke target. Cocok untuk swing dengan partial take profit 50-70%.";
+    } else if (isOptimal) {
+      recommendation =
+        "Beta 0.8–2.0 → Range optimal untuk swing trade. Prioritaskan jika Confidence Score ≥ 8.";
+    } else if (isLowVol) {
+      recommendation =
+        "Beta < 0.5 → Terlalu lambat untuk swing. Lebih baik dijadikan watchlist jangka menengah atau skip.";
+    } else {
+      recommendation =
+        "Beta di luar sweet spot. Pertimbangkan risk-reward dengan cermat, atau tunggu konfirmasi tambahan.";
+    }
+
+    let tableRows = betaData
+      .map(
+        (row, idx) => `
+    <tr style="${idx === rangeIndex ? "background:rgba(16,185,129,0.08); border-left:2px solid #10b981;" : ""}">
+      <td style="padding:2px 4px; font-size:0.6rem; color:var(--text-secondary);">${row.range}</td>
+      <td style="padding:2px 4px; font-size:0.6rem; text-align:center; font-weight:600; ${row.wr === "81.8%" ? "color:#10b981;" : ""}">${row.wr}</td>
+      <td style="padding:2px 4px; font-size:0.6rem; text-align:center; ${row.ev.includes("+") ? "color:#10b981;" : "color:#ef4444;"}">${row.ev}</td>
+    </tr>
+  `,
+      )
+      .join("");
+
+    betaVisual = `
+    <div class="pro-card">
+      <div class="pro-card-title"><i class="fa-solid fa-chart-line" style="margin-right:6px;"></i> Beta & Risk Profile</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+        <span style="font-size:0.7rem; color:var(--text-secondary);">Beta: <strong style="color:${barColor};">${s.beta}</strong> (${betaLabel})</span>
+        <span style="font-size:0.6rem; color:var(--text-secondary);">Volatilitas: ${s.volatilitas}%</span>
+      </div>
+      <div style="height:4px; background:rgba(255,255,255,0.05); border-radius:2px; overflow:hidden; margin-bottom:0.5rem;">
+        <div style="width:${Math.min(s.beta * 40, 100)}%; height:100%; background:${barColor};"></div>
+      </div>
+      <div style="font-size:0.65rem; color:var(--text-secondary); margin-bottom:0.2rem;">Detail per Beta Range:</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.6rem;">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <th style="text-align:left; padding:2px 4px; color:var(--text-secondary);">Range</th>
+              <th style="text-align:center; padding:2px 4px; color:var(--text-secondary);">Win Rate</th>
+              <th style="text-align:center; padding:2px 4px; color:var(--text-secondary);">EV/Trade</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:0.5rem; padding:0.3rem 0.5rem; background:rgba(255,255,255,0.03); border-radius:4px; border-left:3px solid ${barColor};">
+        <span style="font-size:0.6rem; font-weight:600; color:var(--text-secondary);">Rekomendasi:</span>
+        <span style="font-size:0.65rem; color:var(--text-primary);">${recommendation}</span>
+      </div>
+    </div>
+  `;
+  }
+
+  const entry = s.entryPrice || 0;
+  const tp = s.tp1 || entry * 1.1;
+  const sl = s.sl || entry * 0.9;
+  const pctTp =
+    s.tp1 && s.entryPrice
+      ? (((s.tp1 - s.entryPrice) / s.entryPrice) * 100).toFixed(2)
+      : "–";
+  const pctSl =
+    s.sl && s.entryPrice
+      ? (((s.sl - s.entryPrice) / s.entryPrice) * 100).toFixed(2)
+      : "–";
+
+  const foreignNet = s.foreignNet || 0;
+  const foreignParticipation = s.foreignPartisipasi || 25;
+  const isForeignBuy = foreignNet > 0;
+  const foreignLabel = isForeignBuy ? "NET BUY ASING" : "NET SELL ASING";
+  const foreignClass = isForeignBuy ? "buy" : "sell";
+  const foreignAbs = Math.abs(foreignNet).toLocaleString();
+  const foreignPct = Math.min((Math.abs(foreignNet) / 1000) * 100, 100);
+
+  const headerResetStyle = `
+<style>
+  .emit-header-simple { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:0.25rem 0; margin-bottom:0.75rem; gap:0.5rem; }
+  .emit-header-simple .left { display:flex; flex-wrap:wrap; align-items:center; gap:0.4rem; flex:1 1 auto; }
+  .emit-header-simple .left .stock-group { display:flex; align-items:center; gap:0.4rem; flex-shrink:0; }
+  .emit-header-simple .left .stock-group .ticker { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.2rem; color:var(--text-primary); white-space:nowrap; }
+  .emit-header-simple .left .emit-tag-group { display:flex; flex-wrap:wrap; align-items:center; gap:0.25rem 0.4rem; flex:0 1 auto; }
+  .emit-header-simple .right { font-size:0.7rem; color:var(--text-secondary); opacity:0.6; flex-shrink:0; }
+
+  .pro-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .pro-grid-2 .col-left {
+    border-right: 1px solid rgba(255,255,255,0.08);
+    padding-right: 0.5rem;
+  }
+  .pro-grid-2 .col-right {
+    padding-left: 0.5rem;
+  }
+
+  .price-ladder {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+    margin: 0;
+  }
+  .price-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex: 1;
+    justify-content: center;
+  }
+
+  @media (max-width: 640px) {
+    .pro-grid-2 {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.75rem !important;
+    }
+    .pro-grid-2 .col-left {
+      border-right: none !important;
+      padding-right: 0 !important;
+    }
+    .pro-grid-2 .col-right {
+      padding-left: 0 !important;
+    }
+    .pro-detail-container {
+      padding: 0 !important;
+    }
+    .emit-header-simple .left .stock-group .ticker { font-size:1rem; }
+    .emit-header-simple .left .emit-tag-group .emit-tag { font-size:0.55rem; }
+    .emit-header-simple .left .emit-tag-group .emit-tag i { font-size:0.5rem; }
+    .emit-header-simple .right { font-size:0.6rem; }
+    .price-ladder {
+      flex-wrap: nowrap !important;
+      gap: 0.2rem !important;
+    }
+    .price-item {
+      flex: 1 1 0 !important;
+      justify-content: center !important;
+    }
+  }
+</style>
+`;
+
+  let html = `
+${headerResetStyle}
+<div class="pro-detail-container">
+  <button class="sig-back-btn" onclick="showSignalList()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Kembali
+  </button>
+
+  <div style="background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid rgba(255,255,255,0.08); overflow:hidden; margin-bottom:0.5rem;">
+
+    <!-- HEADER -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="display:grid; grid-template-columns: 1fr auto; gap:0.2rem 0.5rem; align-items:center;">
+        <div style="grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:0.1rem;">
+          <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.2rem; color:var(--text-primary);">${escapeHtml(s.stockCode)}</span>
+          <span style="font-size:0.8rem; color:var(--text-secondary); opacity:0.7;">${escapeHtml(stockInfo.longName)}</span>
+        </div>
+        <div style="grid-column:1; grid-row:2; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span style="font-family:'JetBrains Mono'; font-weight:600; font-size:1rem; color:var(--text-primary); display:flex; align-items:center;">
+            ${priceArrow} ${displayPrice}
+          </span>
+          <span style="font-family:'JetBrains Mono'; font-size:0.75rem; color:${gainColor}; font-weight:600; display:flex; align-items:center; gap:0.2rem;">${gainStr}</span>
+          ${statusStamp}
+        </div>
+        <div style="grid-column:2; grid-row:1 / 3; display:flex; align-items:center; justify-content:center;">${logoHtml}</div>
+        <div style="grid-column:1 / 3; grid-row:3; margin-top:0.1rem;">${tagHtml}</div>
+        <div style="grid-column:1 / 3; grid-row:4; font-size:0.7rem; color:var(--text-secondary); opacity:0.6; margin-top:0.1rem;">${s.signalDate ? s.signalDate.substring(0, 10) : ""}</div>
+      </div>
+    </div>
+
+    <!-- SIGNAL TYPE + PRICE LADDER -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="display:flex; align-items:center; gap:1rem; padding-bottom:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05); margin-bottom:0.4rem;">
+        <div style="width:48px; height:48px; border-radius:50%; background:${signalBorder}15; border:2px solid ${signalBorder}; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:${signalBorder};">
+          ${signalIcon}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:0.55rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-secondary);">Signal Type</div>
+          <div style="font-family:'JetBrains Mono'; font-weight:700; font-size:1.3rem; color:${signalBorder}; line-height:1.2;">
+            ${signalLabelText}
+            <span style="font-size:0.7rem; font-weight:400; color:var(--text-secondary); margin-left:0.5rem;">${signalLabel}</span>
+          </div>
+        </div>
+        <div style="font-size:0.5rem; background:${signalBorder}15; color:${signalBorder}; padding:2px 10px; border-radius:20px; border:1px solid ${signalBorder}25; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">${signalDesc}</div>
+      </div>
+      <div class="price-ladder" style="display:flex; justify-content:space-around; align-items:center; gap:0.5rem; padding:0.2rem 0; margin:0;">
+        <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
+          <span class="label" style="font-size:0.6rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.2rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Entry
+          </span>
+          <span class="value" style="font-family:'JetBrains Mono'; font-weight:600; font-size:0.9rem; color:var(--text-primary);">${fmtPrice(s.entryPrice)}</span>
+          <span class="change neutral" style="font-size:0.6rem; color:var(--text-secondary);">—</span>
+        </div>
+        <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
+          <span class="label" style="font-size:0.6rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.2rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> TAKE PROFIT
+          </span>
+          <span class="value" style="font-family:'JetBrains Mono'; font-weight:600; font-size:0.9rem; color:var(--success);">${fmtPrice(s.tp1)}</span>
+          <span class="change positive" style="font-size:0.6rem; color:var(--success);">+${pctTp}%</span>
+        </div>
+        <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
+          <span class="label" style="font-size:0.6rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.2rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i> STOP LOSS
+          </span>
+          <span class="value" style="font-family:'JetBrains Mono'; font-weight:600; font-size:0.9rem; color:var(--danger);">${fmtPrice(s.sl)}</span>
+          <span class="change negative" style="font-size:0.6rem; color:var(--danger);">${pctSl}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIDENCE -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      ${confVisual.replace(/<div class="pro-card" style="position:relative;">/, '<div style="position:relative;">')}
+    </div>
+
+    <!-- BROKER + FOREIGN -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div class="pro-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+        <div>
+          <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            Broker Flow
+          </div>
+          <div id="brokerFlowContainer" class="broker-flow-container"></div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Foreign Flow
+          </div>
+          <div class="foreign-flow-container">
+            <div class="foreign-row">
+              <span class="foreign-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                ${foreignLabel}
+              </span>
+              <span class="foreign-value ${foreignClass}">${isForeignBuy ? "+" : ""}${foreignAbs} lot</span>
+              <div class="foreign-bar-track"><div class="foreign-bar-fill ${foreignClass}-fill" style="width:${Math.min(foreignPct, 100)}%;"></div></div>
+              <span class="foreign-participation">${foreignParticipation}%</span>
+            </div>
+            <div style="font-size:0.65rem; color:var(--text-secondary); display:flex; justify-content:space-between; margin-top:0.3rem;">
+              <span>Partisipasi</span>
+              <span>${foreignParticipation}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSI + MACD -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div class="pro-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+        <div>
+          <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> RSI (14)
+          </div>
+          <div class="pro-chart-wrap" style="height:120px;"><canvas id="proRsiChart"></canvas></div>
+          <div style="text-align:center; font-family:'JetBrains Mono'; font-weight:700; font-size:1.2rem; margin-top:-10px;">${s.rsi != null ? s.rsi.toFixed(2) : "–"}</div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> MACD
+          </div>
+          <div class="pro-chart-wrap" style="height:120px;"><canvas id="proMacdChart"></canvas></div>
+          <div style="display:flex; justify-content:space-between; font-size:0.6rem; color:var(--text-secondary); margin-top:0.25rem;">
+            <span>MACD: ${s.macd != null ? s.macd.toFixed(2) : "–"}</span>
+            <span>Signal: ${s.macdSignal != null ? s.macdSignal.toFixed(2) : "–"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BETA -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div class="pro-grid-2">
+        <div class="col-left">
+          ${betaVisual ? betaVisual.replace(/<div class="pro-card">/, '<div style="">') : `<div style="color:var(--text-secondary); opacity:0.5; font-size:0.8rem;">Tidak ada data Beta</div>`}
+        </div>
+      </div>
+    </div>
+
+    <!-- TEKNIKAL -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div class="pro-grid-2">
+        <div class="col-right" style="width:100%;">
+          <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Teknikal
+          </div>
+          <div class="pro-indicator-list">
+            ${renderIndRow("EMA 20", fmtPrice(s.ema20), s.ema20, s.entryPrice)}
+            ${renderIndRow("EMA 50", fmtPrice(s.ema50), s.ema50, s.entryPrice)}
+            ${renderIndRow("VWAP", fmtPrice(s.vwap), s.vwap, s.entryPrice)}
+            ${s.adx != null ? `<div class="pro-ind-row"><span class="pro-ind-label">ADX</span><div class="pro-ind-track"><div class="pro-ind-fill bg-warning" style="width:${Math.min(s.adx, 100)}%;"></div></div><span class="pro-ind-val">${s.adx}</span></div>` : ""}
+            ${s.atr != null ? `<div class="pro-ind-row"><span class="pro-ind-label">ATR</span><div class="pro-ind-track"><div class="pro-ind-fill bg-neutral" style="width:${Math.min((s.atr / (s.entryPrice || 1)) * 100, 100)}%;"></div></div><span class="pro-ind-val">${fmtPrice(s.atr)}</span></div>` : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHART PATTERN -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Chart Pattern
+      </div>
+      <div id="patternVisualContainer"></div>
+      <div style="margin-top:0.5rem;">
+        <div style="font-size:0.75rem; color:var(--text-secondary);"><strong>Chart:</strong> ${s.patternChart || "–"}</div>
+        <div style="font-size:0.75rem; color:var(--text-secondary);"><strong>Candle:</strong> ${s.patternCandle || "–"}</div>
+      </div>
+    </div>
+
+    <!-- ANALYST OPINION -->
+    <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+      ${
+        s.analystOpinion
+          ? `
+      <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Analyst Opinion
+      </div>
+      <div class="pro-text-box">${escapeHtml(s.analystOpinion)}</div>
+      `
+          : `
+      <div style="display:flex; align-items:center; justify-content:center; color:var(--text-secondary); opacity:0.4; font-size:0.8rem;">Tidak ada opini analis</div>
+      `
+      }
+    </div>
+
+    <!-- BERITA TERKAIT -->
+    ${
+      s.relatedNews && s.relatedNews.length
+        ? `
+    <div style="padding:0.5rem 0.75rem;">
+      <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Berita Terkait
+      </div>
+      <ul class="pro-news-list">${s.relatedNews.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>
+    </div>`
+        : ""
+    }
+  </div>
+</div>`;
+
+  container.innerHTML = html;
+  window.scrollTo(0, 0);
+
+  setTimeout(() => {
+    renderDetailCharts(s);
+    renderBrokerFlow(s.topBuyers, s.topSellers, s.sinyalBandar);
+    renderPatternVisual(s.patternChart);
+  }, 50);
+
+  window.location.hash = `detail-${index}`;
+}
+
+// ========== RENDER BROKER FLOW ==========
+function renderBrokerFlow(topBuyers, topSellers, sinyalBandar) {
+  const container = document.getElementById("brokerFlowContainer");
+  if (!container) return;
+
+  const buyers = topBuyers || [];
+  const sellers = topSellers || [];
+
+  const normalized = (sinyalBandar || "").toUpperCase().replace(/_/g, " ");
+  let bandarSignal = "NEUTRAL";
+  let bandarClass = "neutral";
+
+  if (normalized.includes("STRONG BUY")) {
+    bandarSignal = "STRONG BUY";
+    bandarClass = "strong-buy";
+  } else if (normalized.includes("BUY") && !normalized.includes("STRONG")) {
+    bandarSignal = "BUY";
+    bandarClass = "buy";
+  } else if (normalized.includes("STRONG SELL")) {
+    bandarSignal = "STRONG SELL";
+    bandarClass = "strong-sell";
+  } else if (normalized.includes("SELL") && !normalized.includes("STRONG")) {
+    bandarSignal = "SELL";
+    bandarClass = "sell";
+  } else if (normalized.includes("NEUTRAL")) {
+    bandarSignal = "NEUTRAL";
+    bandarClass = "neutral";
+  }
+
+  const topBuy = buyers.slice(0, 5);
+  const topSell = sellers.slice(0, 5);
+  const maxBuy = topBuy.length ? Math.max(...topBuy.map((b) => b.lot)) : 1;
+  const maxSell = topSell.length ? Math.max(...topSell.map((b) => b.lot)) : 1;
+
+  let html = `<div class="broker-flow-grid">`;
+
+  html += `<div class="broker-col"><div class="broker-col-title buy">▲ BUY</div>`;
+  if (topBuy.length) {
+    topBuy.forEach((b) => {
+      const pct = (b.lot / maxBuy) * 100;
+      html += `<div class="broker-item buy">
+        <span class="code">${b.code}</span>
+        <span class="vol">${b.lot.toLocaleString()}L</span>
+        <div style="flex:1;height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;">
+          <div style="width:${Math.min(pct, 100)}%;height:100%;background:var(--success);border-radius:2px;"></div>
+        </div>
+      </div>`;
+    });
+  } else {
+    html += `<div style="font-size:0.7rem;color:var(--text-secondary);padding:0.5rem 0;">—</div>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="broker-center">
+    <span class="broker-flow-arrow">⟷</span>
+    <span class="broker-signal ${bandarClass}">${bandarSignal}</span>
+    <span style="font-size:0.6rem;color:var(--text-secondary);">Smart Money</span>
+  </div>`;
+
+  html += `<div class="broker-col"><div class="broker-col-title sell">▼ SELL</div>`;
+  if (topSell.length) {
+    topSell.forEach((b) => {
+      const pct = (b.lot / maxSell) * 100;
+      html += `<div class="broker-item sell">
+        <div style="flex:1;height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;">
+          <div style="width:${Math.min(pct, 100)}%;height:100%;background:var(--danger);border-radius:2px;margin-left:auto;"></div>
+        </div>
+        <span class="vol">${b.lot.toLocaleString()}L</span>
+        <span class="code">${b.code}</span>
+      </div>`;
+    });
+  } else {
+    html += `<div style="font-size:0.7rem;color:var(--text-secondary);text-align:right;padding:0.5rem 0;">—</div>`;
+  }
+  html += `</div>`;
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+// ========== PATTERN VISUAL ==========
+function renderPatternVisual(patternText) {
+  const container = document.getElementById("patternVisualContainer");
+  if (!container) return;
+  const patterns = {
+    "Recovery Uptrend dari Bottom": {
+      path: "M10,70 Q40,80 60,40 Q80,10 100,20",
+      color: "#10b981",
+      label: "Recovery",
+    },
+    "Breakout Bollinger Upper": {
+      path: "M10,60 Q30,50 50,55 Q70,60 90,20 L100,10",
+      color: "#f59e0b",
+      label: "Breakout",
+    },
+    "Bullish Momentum Candle": {
+      path: "M10,80 Q30,70 50,50 Q70,30 90,20",
+      color: "#3b82f6",
+      label: "Momentum",
+    },
+    "Strong Close Near High": {
+      path: "M10,70 Q30,50 50,30 Q70,20 90,10 L100,10",
+      color: "#8b5cf6",
+      label: "Strong",
+    },
+  };
+  let found = null;
+  if (patternText) {
+    const lower = patternText.toLowerCase();
+    for (const [key, val] of Object.entries(patterns)) {
+      if (lower.includes(key.toLowerCase())) {
+        found = val;
+        break;
+      }
+    }
+  }
+  if (!found)
+    found = {
+      path: "M10,70 Q40,80 60,40 Q80,10 100,20",
+      color: "#71717a",
+      label: "Pattern",
+    };
+
+  const svg = `<div class="pattern-visual"><svg viewBox="0 0 120 80" width="100%" height="80">
+    <line x1="10" y1="75" x2="110" y2="75" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+    <line x1="10" y1="55" x2="110" y2="55" stroke="rgba(255,255,255,0.03)" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <line x1="10" y1="35" x2="110" y2="35" stroke="rgba(255,255,255,0.03)" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <line x1="10" y1="15" x2="110" y2="15" stroke="rgba(255,255,255,0.03)" stroke-width="0.5" stroke-dasharray="2,2"/>
+    <rect x="20" y="60" width="6" height="15" fill="rgba(239,68,68,0.4)" rx="1"/>
+    <line x1="23" y1="55" x2="23" y2="75" stroke="rgba(239,68,68,0.3)" stroke-width="1"/>
+    <rect x="35" y="55" width="6" height="20" fill="rgba(239,68,68,0.5)" rx="1"/>
+    <line x1="38" y1="48" x2="38" y2="75" stroke="rgba(239,68,68,0.3)" stroke-width="1"/>
+    <rect x="50" y="45" width="6" height="25" fill="rgba(16,185,129,0.5)" rx="1"/>
+    <line x1="53" y1="40" x2="53" y2="70" stroke="rgba(16,185,129,0.3)" stroke-width="1"/>
+    <rect x="65" y="35" width="6" height="30" fill="rgba(16,185,129,0.6)" rx="1"/>
+    <line x1="68" y1="30" x2="68" y2="65" stroke="rgba(16,185,129,0.3)" stroke-width="1"/>
+    <rect x="80" y="20" width="6" height="40" fill="rgba(16,185,129,0.7)" rx="1"/>
+    <line x1="83" y1="15" x2="83" y2="60" stroke="rgba(16,185,129,0.3)" stroke-width="1"/>
+    <path d="${found.path}" fill="none" stroke="${found.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4,2"/>
+    <path d="${found.path}" fill="none" stroke="${found.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.15"/>
+    <text x="110" y="12" font-size="6" fill="${found.color}" font-weight="700" text-anchor="end" font-family="'JetBrains Mono', monospace">${found.label}</text>
+  </svg></div>`;
+  container.innerHTML = svg;
+}
+
+// ========== RENDER INDICATOR ROW ==========
+function renderIndRow(label, displayVal, compareVal, entryVal) {
+  let fillClass = "bg-neutral",
+    width = "50%";
+  if (compareVal && entryVal) {
+    if (entryVal > compareVal) {
+      fillClass = "bg-success";
+      width = "75%";
+    } else {
+      fillClass = "bg-danger";
+      width = "25%";
+    }
+  }
+  return `<div class="pro-ind-row"><span class="pro-ind-label">${label}</span><div class="pro-ind-track"><div class="pro-ind-fill ${fillClass}" style="width:${width};"></div></div><span class="pro-ind-val">${displayVal}</span></div>`;
+}
+
+// ========== CHARTS ==========
+function renderDetailCharts(s) {
+  if (detailCharts.rsi) detailCharts.rsi.destroy();
+  if (detailCharts.macd) detailCharts.macd.destroy();
+
+  Chart.defaults.color = "#71717a";
+  Chart.defaults.font.family = "'JetBrains Mono', monospace";
+
+  const ctxRsi = document.getElementById("proRsiChart");
+  if (ctxRsi && s.rsi != null) {
+    const rsiVal = s.rsi;
+    const color = rsiVal > 70 ? "#ef4444" : rsiVal < 30 ? "#10b981" : "#f59e0b";
+    detailCharts.rsi = new Chart(ctxRsi, {
+      type: "doughnut",
+      data: {
+        datasets: [
+          {
+            data: [rsiVal, 100 - rsiVal],
+            backgroundColor: [color, "rgba(255,255,255,0.05)"],
+            borderWidth: 0,
+            cutout: "80%",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        rotation: -90,
+        circumference: 180,
+        plugins: { tooltip: { enabled: false }, legend: { display: false } },
+      },
+    });
+  }
+
+  const ctxMacd = document.getElementById("proMacdChart");
+  if (ctxMacd && s.macd != null) {
+    const hist = s.macd - (s.macdSignal || 0);
+    detailCharts.macd = new Chart(ctxMacd, {
+      type: "bar",
+      data: {
+        labels: ["MACD", "Signal", "Hist"],
+        datasets: [
+          {
+            data: [s.macd, s.macdSignal || 0, hist],
+            backgroundColor: [
+              "#3b82f6",
+              "#f59e0b",
+              hist > 0 ? "#10b981" : "#ef4444",
+            ],
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: "rgba(255,255,255,0.05)" } },
+          x: { grid: { display: false } },
+        },
+      },
+    });
+  }
+}
+
+// ========== FETCH DATA ==========
+async function fetchReports() {
+  const activeTab = document.querySelector(".view.active")?.id;
+  if (activeTab === "daily") showLoading("daily");
+  if (activeTab === "weekly") showLoading("weekly");
+  if (activeTab === "monthly") showLoading("monthly");
+  try {
+    const res = await fetch(`${apiBase}/reports`);
+    if (!res.ok) throw new Error("Gagal fetch reports");
+    const data = await res.json();
+    renderDaily(data.daily || []);
+    renderWeekly(data.weekly || []);
+    renderMonthly(data.monthly || []);
+  } catch (err) {
+    console.error(err);
+    const errorHtml = `<div class="loading-state"><p style="color:var(--danger);">❌ Gagal memuat laporan</p><button onclick="fetchReports()" class="retry-btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:0.5rem 1rem;border-radius:8px;color:var(--text-primary);cursor:pointer;">Coba Lagi</button></div>`;
+    if (document.getElementById("daily")?.innerHTML.includes("Loading"))
+      document.getElementById("daily").innerHTML = errorHtml;
+    if (document.getElementById("weekly")?.innerHTML.includes("Loading"))
+      document.getElementById("weekly").innerHTML = errorHtml;
+    if (document.getElementById("monthly")?.innerHTML.includes("Loading"))
+      document.getElementById("monthly").innerHTML = errorHtml;
+  }
+}
+
+async function fetchSignals(showLoadingIndicator = true) {
+  if (isDetailView) {
+    try {
+      const res = await fetch(`${apiBase}/signals`);
+      if (!res.ok) throw new Error("Gagal fetch signals");
+      const data = await res.json();
+      _allRunning = data.running || [];
+      _allClosed = data.closed || [];
+      updateTotalSignals(_allRunning, _allClosed);
+      updateChartsFromSignals({ running: _allRunning, closed: _allClosed });
+      checkNewSignals(_allRunning);
+    } catch (err) {
+      console.warn("Background fetch error:", err);
+    }
+    return;
+  }
+
+  if (showLoadingIndicator && currentTab === "signals" && !isDetailView)
+    showLoading("signals");
+  try {
+    const res = await fetch(`${apiBase}/signals`);
+    if (!res.ok) throw new Error("Gagal fetch signals");
+    const data = await res.json();
+    const running = data.running || [];
+    const closed = data.closed || [];
+
+    _allRunning = running;
+    _allClosed = closed;
+
+    if (currentTab === "signals") {
+      if (isDetailView) {
+        isDetailView = false;
+        currentDetailIndex = null;
+        if (window.location.hash.startsWith("#detail-")) {
+          history.pushState(null, "", window.location.pathname);
+        }
+      }
+      await renderSignals(running, closed);
+    } else if (!isDetailView) {
+      await renderSignals(running, closed);
+    }
+
+    updateTotalSignals(running, closed);
+    updateChartsFromSignals({ running, closed });
+    checkNewSignals(running);
+  } catch (err) {
+    console.error(err);
+    if (currentTab === "signals" && !isDetailView) {
+      document.getElementById("signals").innerHTML = `
+        <div class="loading-state" style="text-align:center; padding:2rem;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:1rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="width:48px; height:48px;">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p style="color:#ef4444; font-weight:500; margin:0;">Gagal memuat sinyal</p>
+            <button onclick="fetchSignals()" class="retry-btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:0.6rem 1.2rem;border-radius:8px;color:var(--text-primary);cursor:pointer;display:flex;align-items:center;gap:0.5rem;transition:0.2s;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px; height:16px;">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              Coba Lagi
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  }
+}
+
+function updateTotalSignals(running, closed) {
+  const total = (running ? running.length : 0) + (closed ? closed.length : 0);
+  const el = document.getElementById("totalSignals");
+  if (el) el.innerText = total;
+}
+
+// ========== CHARTS FROM SIGNALS ==========
+function updateChartsFromSignals(data) {
+  updateEquityChart(data);
+  updateWinRateChart(data);
+  updateSignalChart(data);
+}
+
+function updateEquityChart(data) {
+  const ctx = document.getElementById("equityChart");
+  if (!ctx) return;
+  if (equityChart) equityChart.destroy();
+  const closed = data.closed || [];
+  let labels = ["Start"],
+    equityData = [100];
+  if (closed.length) {
+    let current = 100;
+    closed.forEach((t, i) => {
+      labels.push(`T${i + 1}`);
+      current += t.returnPercent || 0;
+      equityData.push(current);
+    });
+  } else {
+    labels.push("Current");
+    equityData.push(100);
+  }
+  equityChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Equity",
+          data: equityData,
+          borderColor: "#10b981",
+          backgroundColor: (ctx) => {
+            const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
+            g.addColorStop(0, "rgba(16,185,129,0.2)");
+            g.addColorStop(1, "rgba(16,185,129,0)");
+            return g;
+          },
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: "index", intersect: false },
+      },
+      scales: {
+        y: {
+          grid: { color: "rgba(255,255,255,0.05)" },
+          ticks: { color: "#71717a" },
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: "#71717a", maxTicksLimit: 6 },
+        },
+      },
+    },
+  });
+}
+
+function updateWinRateChart(data) {
+  const ctx = document.getElementById("winRateChart");
+  if (!ctx) return;
+  if (winRateChart) winRateChart.destroy();
+  const closed = data.closed || [];
+  const wins = closed.filter((s) => (s.returnPercent || 0) > 0).length;
+  const losses = closed.filter((s) => (s.returnPercent || 0) <= 0).length;
+  const total = wins + losses;
+  const winRate = total > 0 ? (wins / total) * 100 : 0;
+  let totalRisk = 0,
+    totalReward = 0,
+    grossProfit = 0,
+    grossLoss = 0;
+  closed.forEach((s) => {
+    const ret = s.returnPercent || 0;
+    if (ret > 0) {
+      grossProfit += ret;
+      totalReward += ret;
+      totalRisk += ret * 0.5;
+    } else {
+      grossLoss += Math.abs(ret);
+      totalRisk += Math.abs(ret);
+    }
+  });
+  const avgRR = totalRisk > 0 ? (totalReward / totalRisk).toFixed(1) : "-";
+  const profitFactor =
+    grossLoss > 0
+      ? (grossProfit / grossLoss).toFixed(2)
+      : grossProfit > 0
+        ? "∞"
+        : "-";
+  document.getElementById("avgRR").innerText = `1:${avgRR}`;
+  document.getElementById("profitFactor").innerText = profitFactor;
+
+  winRateChart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Win", "Loss"],
+      datasets: [
+        {
+          data: total > 0 ? [wins, losses] : [0, 100],
+          backgroundColor: ["#10b981", "#ef4444"],
+          borderColor: "transparent",
+          cutout: "85%",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    },
+    plugins: [
+      {
+        id: "winRateText",
+        beforeDraw: (chart) => {
+          const {
+            ctx,
+            chartArea: { width, height, top, left },
+          } = chart;
+          ctx.save();
+          ctx.font = "bold 1.5rem 'Space Grotesk'";
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.fillText(`${winRate}%`, left + width / 2, top + height / 2 - 10);
+          ctx.font = "0.7rem 'Space Grotesk'";
+          ctx.fillStyle = "#71717a";
+          ctx.fillText("WIN RATE", left + width / 2, top + height / 2 + 20);
+          ctx.restore();
+        },
+      },
+    ],
+  });
+}
+
+function updateSignalChart(data) {
+  const ctx = document.getElementById("signalChart");
+  if (!ctx) return;
+  if (signalChart) signalChart.destroy();
+  const running = data.running ? data.running.length : 0;
+  const closed = data.closed ? data.closed.length : 0;
+  const hasData = running + closed > 0;
+  signalChart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: hasData ? ["Running", "Closed"] : ["No Data"],
+      datasets: [
+        {
+          data: hasData ? [running, closed] : [1],
+          backgroundColor: hasData ? ["#10b981", "#3b82f6"] : ["#71717a"],
+          borderColor: "rgba(255,255,255,0.1)",
+          borderWidth: 2,
+          hoverOffset: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: "#71717a", font: { size: 10 }, usePointStyle: true },
+        },
+      },
+      cutout: "70%",
+    },
+  });
+}
+
+// ========== NOTIFIKASI ==========
+let lastSignalIds = "";
+function checkNewSignals(running) {
+  if (!running) return;
+  const currentIds = running
+    .map((s) => `${s.stockCode}-${s.signalDate}`)
+    .sort()
+    .join(",");
+  const prevIds = localStorage.getItem("lastSignalIds") || "";
+  if (prevIds && prevIds !== currentIds) {
+    const newCount =
+      running.length - prevIds.split(",").filter((id) => id).length;
+    if (newCount > 0) {
+      sendNotification(
+        "🔔 Sinyal Baru!",
+        `${newCount} sinyal baru masuk. Cek tab Sinyal Aktif.`,
+      );
+      triggerHaptic();
+      document.querySelector(".notif-badge")?.classList.add("active");
+    }
+  }
+  localStorage.setItem("lastSignalIds", currentIds);
+}
+
+function sendNotification(title, body) {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    new Notification(title, {
+      body,
+      icon: "https://raw.githubusercontent.com/TheGetsuzoZhiro/image/refs/heads/main/43D434F0-C01C-4A9E-8A5C-93B650B5981C.png",
+    });
+  }
+}
+
+function requestNotificationPermission() {
+  triggerHaptic();
+  if (!("Notification" in window)) {
+    alert("Browser tidak mendukung notifikasi.");
+    return;
+  }
+  if (Notification.permission === "denied") {
+    alert("Notifikasi diblokir. Silakan aktifkan melalui pengaturan browser.");
+    return;
+  }
+  if (Notification.permission === "granted") {
+    sendNotification("✅ Notifikasi Aktif", "Sistem sudah berjalan.");
+    return;
+  }
+  Notification.requestPermission().then((perm) => {
+    if (perm === "granted") {
+      document.querySelector(".notif-badge")?.classList.remove("active");
+      sendNotification("✅ Berhasil", "Notifikasi diaktifkan!");
+    } else alert("Izin notifikasi ditolak.");
+  });
+}
+
+// ========== POLLING ==========
+function startPolling() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(() => {
+    fetchReports();
+    fetchSignals(false);
+    updateLastUpdate();
+  }, 30000);
+}
+
+function updateLastUpdate() {
+  const el = document.getElementById("last-update");
+  if (el)
+    el.innerText = new Date().toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+}
+
+// ========== CLOCK ==========
+function updateClock() {
+  const clockEl = document.getElementById("clockDisplay");
+  if (clockEl)
+    clockEl.innerText = new Date().toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  const marketStatus = document.getElementById("marketStatus");
+  if (marketStatus) {
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay();
+    const isOpen = day >= 1 && day <= 5 && hour >= 9 && hour < 16;
+    marketStatus.classList.toggle("open", isOpen);
+    marketStatus.innerHTML = `<span class="dot"></span><span class="market-text">${isOpen ? "Market Open" : "Market Closed"}</span>`;
+  }
+}
+
+// ========== FUNGSI FILTER SINYAL ==========
+function selectSignalFilter(filter) {
+  currentSignalFilter = filter;
+  const pageTitle = document.querySelector(".page-title");
+  const pageSubtitle = document.querySelector(".page-subtitle");
+  if (filter === "today") {
+    pageTitle.innerText = "Sinyal Hari Ini";
+    pageSubtitle.innerText = "Today's signals";
+    window.location.hash = "#signals-today";
+  } else if (filter === "running") {
+    pageTitle.innerText = "All Running";
+    pageSubtitle.innerText = "Active positions";
+    window.location.hash = "#signals-running";
+  } else {
+    pageTitle.innerText = "Sinyal Aktif";
+    pageSubtitle.innerText = "All signals";
+    window.location.hash = "#signals";
+  }
+  document
+    .querySelectorAll(".view")
+    .forEach((v) => v.classList.remove("active"));
+  document.getElementById("signals").classList.add("active");
+  currentTab = "signals";
+  fetchSignals(true);
+}
+
+// ========== UI ==========
+function initTabs() {
+  const btns = document.querySelectorAll(".nav-link, .nav-sub-link");
+  const views = document.querySelectorAll(".view");
+  const pageTitle = document.querySelector(".page-title");
+  const pageSubtitle = document.querySelector(".page-subtitle");
+  const titles = {
+    home: { t: "Dashboard Overview", s: "Real-time monitoring & analysis" },
+    daily: { t: "Laporan Harian", s: "Daily reports" },
+    weekly: { t: "Laporan Mingguan", s: "Weekly summary" },
+    monthly: { t: "Laporan Bulanan", s: "Monthly analytics" },
+    signals: { t: "Sinyal Aktif", s: "All signals" },
+    "signals-today": { t: "Sinyal Hari Ini", s: "Today's signals" },
+    "signals-running": { t: "All Running", s: "Active positions" },
+  };
+
+  btns.forEach((btn) => {
+    if (btn.id === "signalsParent") return;
+
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      triggerHaptic();
+
+      if (!this.classList.contains("nav-sub-link")) {
+        const subMenu = document.getElementById("signalSubMenu");
+        const parentBtn = document.getElementById("signalsParent");
+        if (subMenu && subMenu.classList.contains("open")) {
+          subMenu.classList.remove("open");
+          subMenu.style.display = "none";
+          if (parentBtn) parentBtn.classList.remove("open");
+          const arrow = parentBtn?.querySelector(".nav-arrow");
+          if (arrow) arrow.classList.remove("open");
+        }
+      }
+
+      const tabId = this.getAttribute("data-tab");
+      const isSub = this.classList.contains("nav-sub-link");
+
+      if (isSub) {
+        if (tabId === "signals-today") {
+          selectSignalFilter("today");
+        } else if (tabId === "signals-running") {
+          selectSignalFilter("running");
+        } else {
+          selectSignalFilter("all");
+        }
+        btns.forEach((b) => b.classList.remove("active"));
+        document
+          .querySelector('.nav-link[data-tab="signals"]')
+          ?.classList.add("active");
+        this.classList.add("active");
+        document.querySelector(".sidebar")?.classList.remove("open");
+        document.querySelector(".overlay")?.classList.remove("active");
+        return;
+      }
+
+      currentTab = tabId;
+      btns.forEach((b) => b.classList.remove("active"));
+      this.classList.add("active");
+      views.forEach((v) => v.classList.remove("active"));
+      document.getElementById(tabId).classList.add("active");
+      if (titles[tabId]) {
+        pageTitle.innerText = titles[tabId].t;
+        pageSubtitle.innerText = titles[tabId].s;
+      }
+      if (tabId === "daily") showLoading("daily");
+      if (tabId === "weekly") showLoading("weekly");
+      if (tabId === "monthly") showLoading("monthly");
+      if (tabId !== "home") {
+        fetchReports();
+        fetchSignals(true);
+      } else {
+        fetchSignals(false);
+      }
+      document.querySelector(".sidebar")?.classList.remove("open");
+      document.querySelector(".overlay")?.classList.remove("active");
+    });
+  });
+}
+
+function initMobileMenu() {
+  const toggle = document.getElementById("menuToggle");
+  const sidebar = document.querySelector(".sidebar");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      triggerHaptic();
+      sidebar.classList.toggle("open");
+      let overlay = document.querySelector(".overlay");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "overlay";
+        document.body.appendChild(overlay);
+      }
+      overlay.classList.toggle("active");
+      overlay.onclick = () => {
+        sidebar.classList.remove("open");
+        overlay.classList.remove("active");
+      };
+    });
+  }
+}
+
+function initPullToRefresh() {
+  const wrapper = document.getElementById("pullToRefresh");
+  const indicator = document.querySelector(".pull-indicator");
+  let startY = 0,
+    endY = 0;
+  wrapper.addEventListener(
+    "touchstart",
+    (e) => {
+      if (window.scrollY === 0) startY = e.touches[0].clientY;
+    },
+    { passive: true },
+  );
+  wrapper.addEventListener(
+    "touchmove",
+    (e) => {
+      if (window.scrollY === 0 && startY > 0) {
+        endY = e.touches[0].clientY;
+        const diff = endY - startY;
+        if (diff > 0 && diff < 200) {
+          indicator.classList.add("visible");
+          indicator.style.transform = `translateX(-50%) translateY(${diff * 0.5}px)`;
+        }
+      }
+    },
+    { passive: true },
+  );
+  wrapper.addEventListener("touchend", () => {
+    if (startY > 0 && endY > 0 && endY - startY > 100 && window.scrollY === 0) {
+      triggerHaptic();
+      fetchReports();
+      fetchSignals(true);
+      setTimeout(() => {
+        indicator.classList.remove("visible");
+        indicator.style.transform = "translateX(-50%) translateY(0)";
+      }, 1000);
+    } else {
+      indicator.classList.remove("visible");
+      indicator.style.transform = "translateX(-50%) translateY(0)";
+    }
+    startY = 0;
+    endY = 0;
+  });
+}
+
+function initNotifications() {
+  document
+    .getElementById("notifBtn")
+    ?.addEventListener("click", requestNotificationPermission);
+}
+
+function createParticles() {
+  const container = document.getElementById("particles");
+  if (!container) return;
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement("div");
+    const size = Math.random() * 2 + 1;
+    p.style.cssText = `position:absolute;width:${size}px;height:${size}px;background:rgba(255,255,255,0.06);border-radius:50%;left:${Math.random() * 100}%;top:${Math.random() * 100}%;animation:float ${15 + Math.random() * 20}s infinite linear;animation-delay:${Math.random() * 5}s;`;
+    container.appendChild(p);
+  }
+  const style = document.createElement("style");
+  style.textContent = `@keyframes float { 0% { transform: translateY(0) translateX(0); opacity:0; } 10% { opacity:0.5; } 90% { opacity:0.5; } 100% { transform: translateY(-100vh) translateX(${Math.random() * 100 - 50}px); opacity:0; } }`;
+  document.head.appendChild(style);
+}
+
+// ========== INIT ==========
+document.addEventListener("DOMContentLoaded", () => {
+  createParticles();
+  initTabs();
+
+  const signalsParent = document.getElementById("signalsParent");
+  const subMenu = document.getElementById("signalSubMenu");
+  if (signalsParent && subMenu) {
+    signalsParent.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const isOpen = subMenu.classList.toggle("open");
+      subMenu.style.display = isOpen ? "block" : "none";
+      this.classList.toggle("open");
+      const arrow = this.querySelector(".nav-arrow");
+      if (arrow) arrow.classList.toggle("open");
+    });
+  }
+
+  initMobileMenu();
+  initPullToRefresh();
+  initNotifications();
+
+  window.addEventListener("hashchange", () => {
+    const hash = window.location.hash;
+    if (hash === "#signals-today") {
+      selectSignalFilter("today");
+    } else if (hash === "#signals-running") {
+      selectSignalFilter("running");
+    } else if (hash === "#signals" || hash === "") {
+      currentSignalFilter = "none";
+      showSignalList();
+    } else if (hash.startsWith("#detail-")) {
+      const idx = parseInt(hash.replace("#detail-", ""));
+      if (!isNaN(idx) && idx >= 0) {
+        const allSignals = getSortedSignals();
+        if (idx < allSignals.length) {
+          showSignalDetail(idx);
+        } else {
+          showSignalList();
+        }
+      }
+    } else if (hash === "#home") {
+      currentTab = "home";
+      currentSignalFilter = "none";
+      document
+        .querySelectorAll(".view")
+        .forEach((v) => v.classList.remove("active"));
+      document.getElementById("home").classList.add("active");
+      document
+        .querySelectorAll(".nav-link, .nav-sub-link")
+        .forEach((b) => b.classList.remove("active"));
+      document
+        .querySelector('.nav-link[data-tab="home"]')
+        ?.classList.add("active");
+      fetchReports();
+      fetchSignals(false);
+      showSignalList();
+      window.scrollTo(0, 0);
+    } else {
+      window.location.hash = "home";
+    }
+  });
+
+  const currentHash = window.location.hash;
+  if (currentHash !== "#home" && !currentHash.startsWith("#detail-")) {
+    window.location.hash = "home";
+  }
+
+  currentTab = "home";
+  currentSignalFilter = "none";
+  document
+    .querySelectorAll(".view")
+    .forEach((v) => v.classList.remove("active"));
+  document.getElementById("home").classList.add("active");
+  document
+    .querySelectorAll(".nav-link, .nav-sub-link")
+    .forEach((b) => b.classList.remove("active"));
+  document.querySelector('.nav-link[data-tab="home"]')?.classList.add("active");
+
+  showLoading("daily");
+  showLoading("signals");
+  fetchReports();
+  fetchSignals(false);
+  showSignalList();
+
+  setTimeout(() => {
+    window.scrollTo(0, 0);
+  }, 100);
+
+  startPolling();
+  setInterval(updateClock, 1000);
+  updateClock();
+  updateLastUpdate();
+
+  if (window.location.hash.startsWith("#detail-")) {
+    const idx = parseInt(window.location.hash.replace("#detail-", ""));
+    if (!isNaN(idx) && idx >= 0) setTimeout(() => showSignalDetail(idx), 200);
+  }
+});

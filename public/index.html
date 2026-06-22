@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#030303" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <title>GetSuzoIDX</title>
+
+    <link rel="manifest" href="/assets/favicon/manifest.json" />
+
+    <!-- Favicon desktop -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/assets/favicon/favicon-48x48.png" />
+    <link rel="shortcut icon" href="/assets/favicon/favicon.ico" />
+
+    <!-- Apple Touch Icon (iOS) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/favicon/apple-touch-icon.png" />
+
+    <!-- Windows Tiles (opsional) -->
+    <meta name="msapplication-TileColor" content="#030303" />
+    <meta name="msapplication-config" content="/assets/favicon/browserconfig.xml" />
+    <!-- =================================================================== -->
+
+    <link rel="stylesheet" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+      /* Tambahan style untuk warna status */
+      .status-open { color: #4caf50; }
+      .status-closed { color: #f44336; }
+      .status-holiday { color: #ff9800; }
+    </style>
+  </head>
+  <body>
+    <div class="particles-container" id="particles"></div>
+
+    <div class="app-wrapper">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-glow"></div>
+
+        <div class="brand-section">
+          <div class="logo-wrapper">
+            <img
+              src="https://raw.githubusercontent.com/TheGetsuzoZhiro/image/refs/heads/main/43D434F0-C01C-4A9E-8A5C-93B650B5981C.png"
+              alt="Getsuzo"
+              class="brand-logo"
+            />
+            <div class="logo-ring"></div>
+          </div>
+          <div class="brand-info">
+            <h2 class="brand-name">GETSUZO</h2>
+            <span class="brand-tag">IDX SIGNAL PRO</span>
+          </div>
+        </div>
+
+        <nav class="navigation">
+          <button class="nav-link active" data-tab="home">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </div>
+            <span class="nav-text">Beranda</span>
+          </button>
+          <button class="nav-link" data-tab="daily">
+            <div class="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 17L9 11L13 15L21 7" />
+                <path d="M21 7H15" />
+                <path d="M21 7V13" />
+              </svg>
+            </div>
+            <span class="nav-text">Performance</span>
+          </button>
+
+          <!-- Sinyal Aktif dengan dropdown -->
+          <div class="nav-dropdown">
+            <button class="nav-link" data-tab="signals" id="signalsParent">
+              <div class="nav-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <span class="nav-text">Sinyal Aktif</span>
+              <span class="nav-arrow"><i class="fas fa-chevron-down"></i></span>
+            </button>
+            <ul class="nav-sub" id="signalSubMenu">
+              <li>
+                <a class="nav-sub-link" data-tab="signals-today" href="#signals-today">
+                  <i class="fas fa-fire"></i> Today's Signals
+                </a>
+              </li>
+              <li>
+                <a class="nav-sub-link" data-tab="signals-running" href="#signals-running">
+                  <i class="fas fa-play"></i> Running
+                </a>
+              </li>
+            </ul>
+          </div>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <a
+            href="https://instagram.com/raditx7"
+            target="_blank"
+            class="user-card"
+          >
+            <div class="user-avatar">
+              <img src="https://i.ibb.co.com/xt8MYhfK/songkyohyeon-R-Download.jpg" alt="Avatar" />
+              <div class="status-pulse"></div>
+            </div>
+            <div class="user-details">
+              <span class="username">@raditexsoo</span>
+              <span class="user-role">
+                Developer
+                <i
+                  class="fas fa-laptop-code"
+                  style="font-size: 0.7rem; margin-left: 0.2rem"
+                ></i>
+              </span>
+            </div>
+          </a>
+          <div class="system-status">
+            <div class="status-dot live"></div>
+            <span class="status-text">System Online</span>
+          </div>
+          <time class="timestamp" id="last-update">--:--</time>
+        </div>
+      </aside>
+
+      <main class="content-area">
+        <header class="top-bar">
+          <div class="mobile-header-left">
+            <button class="menu-toggle" id="menuToggle">
+              <span></span><span></span><span></span>
+            </button>
+            <div class="mobile-brand">
+              <img
+                src="https://raw.githubusercontent.com/TheGetsuzoZhiro/image/refs/heads/main/43D434F0-C01C-4A9E-8A5C-93B650B5981C.png"
+                alt="Getsuzo"
+              />
+              <span>GETSUZO IDX</span>
+            </div>
+          </div>
+
+          <div class="page-header desktop-only">
+            <h1 class="page-title">Dashboard Overview</h1>
+            <p class="page-subtitle">Real-time monitoring & analysis</p>
+          </div>
+
+          <div class="header-actions">
+            <div class="market-status" id="marketStatus">
+              <span class="dot"></span>
+              <span class="market-text">Market Closed</span>
+            </div>
+            <button class="notification-btn" id="notifBtn">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              <span class="notif-badge"></span>
+            </button>
+          </div>
+        </header>
+
+        <div class="content-wrapper" id="pullToRefresh">
+          <div class="pull-indicator">
+            <svg
+              class="spinner-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <span>Pull to Refresh</span>
+          </div>
+
+          <section id="home" class="view active">
+            <div class="hero-banner">
+              <div class="hero-content">
+                <div class="hero-badge">
+                  <span class="badge-dot"></span><span>LIVE MONITORING</span>
+                </div>
+                <h2 class="hero-title">Selamat Datang di Getsuzo IDX</h2>
+                <p class="hero-description">
+                  Platform analisis teknikal profesional untuk trading saham
+                  Indonesia. Dilengkapi dengan sinyal real-time, laporan
+                  otomatis, dan strategi swing trading berbasis indikator RSI,
+                  EMA, dan Bollinger Bands.
+                </p>
+
+                <div class="feature-grid">
+                  <div class="feature-item">
+                    <div class="feature-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                      </svg>
+                    </div>
+                    <div class="feature-text">
+                      <h4>Sinyal Real-time</h4>
+                      <p>Notifikasi entry & exit point</p>
+                    </div>
+                  </div>
+                  <div class="feature-item">
+                    <div class="feature-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M12 20V10" />
+                        <path d="M18 20V4" />
+                        <path d="M6 20v-4" />
+                      </svg>
+                    </div>
+                    <div class="feature-text">
+                      <h4>Analisis Mendalam</h4>
+                      <p>Laporan harian hingga bulanan</p>
+                    </div>
+                  </div>
+                  <div class="feature-item">
+                    <div class="feature-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 6v6l4 2" />
+                      </svg>
+                    </div>
+                    <div class="feature-text">
+                      <h4>Auto Update</h4>
+                      <p>Data terupdate setiap 2 menit</p>
+                    </div>
+                  </div>
+                  <div class="feature-item">
+                    <div class="feature-icon">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                    </div>
+                    <div class="feature-text">
+                      <h4>Risk Management</h4>
+                      <p>Kalkulasi posisi & proteksi aset</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hero Stats yang sudah dimodifikasi -->
+              <div class="hero-stats">
+                <div class="stat-box">
+                  <div class="stat-number" id="totalSignals">0</div>
+                  <div class="stat-label">Total Sinyal</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-box">
+                  <div class="stat-number" id="systemStatus">Active</div>
+                  <div class="stat-label">Market Status</div>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-box">
+                  <div class="stat-number" id="clockDisplay">00:00</div>
+                  <div class="stat-label">Waktu IBFX</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+              <div class="chart-card full-width">
+                <div class="chart-header-row">
+                  <h3 class="chart-title">Equity Curve (Pertumbuhan Modal)</h3>
+                  <div class="chart-legend-custom">
+                    <span class="legend-item"
+                      ><span class="dot green"></span> Profit</span
+                    >
+                    <span class="legend-item"
+                      ><span class="dot red"></span> Drawdown</span
+                    >
+                  </div>
+                </div>
+                <div class="chart-container">
+                  <canvas id="equityChart"></canvas>
+                </div>
+              </div>
+
+              <div class="chart-card">
+                <h3 class="chart-title">Win Rate Performance</h3>
+                <div class="chart-container small-chart">
+                  <canvas id="winRateChart"></canvas>
+                </div>
+                <div class="metric-footer">
+                  <div class="metric-item">
+                    <span class="metric-label">Avg R:R</span
+                    ><span class="metric-value" id="avgRR">-</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-label">Profit Factor</span
+                    ><span class="metric-value" id="profitFactor">-</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="chart-card">
+                <h3 class="chart-title">Signal Distribution</h3>
+                <div class="chart-container small-chart">
+                  <canvas id="signalChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="daily" class="view">
+            <div class="loading-state">
+              <div class="loader">
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+              </div>
+              <p>Loading daily reports...</p>
+            </div>
+          </section>
+          <section id="weekly" class="view">
+            <div class="loading-state">
+              <div class="loader">
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+              </div>
+              <p>Loading weekly reports...</p>
+            </div>
+          </section>
+          <section id="monthly" class="view">
+            <div class="loading-state">
+              <div class="loader">
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+              </div>
+              <p>Loading monthly reports...</p>
+            </div>
+          </section>
+          <section id="signals" class="view">
+            <div class="loading-state">
+              <div class="loader">
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+              </div>
+              <p>Loading active signals...</p>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- ============ SCRIPTS ============ -->
+    <script>
+      // Fungsi update market status (dot & teks di header)
+      async function updateMarketStatus() {
+        try {
+          const res = await fetch('/api/market-status');
+          const data = await res.json();
+          const statusEl = document.getElementById('marketStatus');
+          const dot = statusEl.querySelector('.dot');
+          const text = statusEl.querySelector('.market-text');
+
+          // Update dot dan teks berdasarkan data
+          if (data.isOpen) {
+            dot.className = 'dot open';
+            text.textContent = 'Market Open';
+          } else {
+            dot.className = 'dot closed';
+            // Tampilkan teks status yang lebih detail
+            let statusText = data.statusText || 'Market Closed';
+            text.textContent = statusText;
+          }
+        } catch (e) {
+          console.warn('Gagal update status pasar', e);
+        }
+      }
+
+      // Fungsi update status sistem di hero-stats
+      async function updateSystemStatus() {
+        try {
+          const res = await fetch('/api/market-status');
+          const data = await res.json();
+          const statusEl = document.getElementById('systemStatus');
+
+          // Tampilkan status dengan keterangan
+          let displayText = data.statusText || (data.isOpen ? 'Market Open' : 'Market Closed');
+          statusEl.textContent = displayText;
+
+          // Ubah warna sesuai status
+          if (data.isOpen) {
+            statusEl.className = 'stat-number status-open';
+          } else if (data.statusClass === 'holiday' || data.holidayName) {
+            statusEl.className = 'stat-number status-holiday';
+          } else {
+            statusEl.className = 'stat-number status-closed';
+          }
+
+          // Update jam
+          const clockEl = document.getElementById('clockDisplay');
+          if (data.currentTime) {
+            clockEl.textContent = data.currentTime;
+          }
+        } catch (e) {
+          console.warn('Gagal update status sistem', e);
+        }
+      }
+
+      // Jalankan pertama kali
+      updateMarketStatus();
+      updateSystemStatus();
+
+      // Update setiap 30 detik
+      setInterval(() => {
+        updateMarketStatus();
+        updateSystemStatus();
+      }, 30000);
+
+      // ===== SCRIPT LAINNYA (untuk tab, chart, dll) =====
+      // ... (sisanya dari script.js Anda, atau bisa diimpor dari file terpisah)
+      // Di sini kami sertakan placeholder agar tidak error
+      console.log('Dashboard loaded');
+    </script>
+
+    <!-- File script.js asli Anda (jika ada) -->
+    <script src="script.js"></script>
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0db0e1bec7ca39b',t:'MTc4MTc5MzY4OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
