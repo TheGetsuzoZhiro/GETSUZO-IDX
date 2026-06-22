@@ -11,6 +11,7 @@
     "express": "latest",
     "moment": "latest",
     "moment-timezone": "latest",
-    "telegram": "latest"
+    "telegram": "latest",
+    "mongoose": "latest"
   }
 }
