@@ -2681,8 +2681,8 @@ function checkSignalChanges(running, closed) {
       const emoji = status === "TP" ? "✅" : "❌";
       const title = status === "TP" ? "Take Profit" : "Stop Loss";
       const msg = `${emoji} ${s.stockCode} ${title} ${sign}${ret.toFixed(2)}%`;
-      sendNotification("💹 Signal Closed", msg);
-      addNotification("💹 Signal Closed", msg, "closed");
+      sendNotification("Signal Closed", msg);
+      addNotification("Signal Closed", msg, "closed");
     });
   }
 
