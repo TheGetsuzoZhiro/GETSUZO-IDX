@@ -26,7 +26,7 @@ let currentFilterState = {
   customEnd: null,
   isOpen: false,
 };
-let currentDateRange = null;
+let currentDateRange = null; // 🔥 perbaikan: global
 
 // ========== NOTIFICATION HISTORY ==========
 let notificationHistory = [];
@@ -66,7 +66,6 @@ function addNotification(title, body, type = "signal") {
     timestamp,
     read: false,
   });
-  // Batasi maksimal 100 notifikasi
   if (notificationHistory.length > 100) notificationHistory.pop();
   saveNotifications();
   updateNotifBadge();
@@ -354,37 +353,45 @@ function filterReportsByDate(
   customEnd = null,
 ) {
   if (!reports || !reports.length) return [];
+
+  const todayStr = getTodayWIB();
   const now = new Date();
-  let startDate = new Date(now);
-  let endDate = new Date(now);
-  endDate.setHours(23, 59, 59, 999);
+  let startDateStr, endDateStr;
+
   switch (filterType) {
     case "today":
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
+      startDateStr = todayStr;
+      endDateStr = todayStr;
       break;
     case "7days":
-      startDate.setDate(now.getDate() - 7);
-      startDate.setHours(0, 0, 0, 0);
+      const d7 = new Date(now);
+      d7.setDate(d7.getDate() - 7);
+      startDateStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+      }).format(d7);
+      endDateStr = todayStr;
       break;
     case "1month":
-      startDate.setMonth(now.getMonth() - 1);
-      startDate.setHours(0, 0, 0, 0);
+      const dm = new Date(now);
+      dm.setMonth(dm.getMonth() - 1);
+      startDateStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+      }).format(dm);
+      endDateStr = todayStr;
       break;
     case "custom":
-      if (customStart) startDate = new Date(customStart);
-      if (customEnd) endDate = new Date(customEnd);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
+      startDateStr = customStart || todayStr;
+      endDateStr = customEnd || todayStr;
       break;
     default:
-      startDate = new Date(0);
-      break;
+      return reports; // Menampilkan semua jika tidak cocok
   }
+
   return reports.filter((r) => {
     if (!r.date) return true;
-    const reportDate = new Date(r.date);
-    return reportDate >= startDate && reportDate <= endDate;
+    // Ambil 10 karakter pertama (YYYY-MM-DD) dari date report untuk dicocokkan langsung sebagai string
+    const reportDateStr = r.date.slice(0, 10);
+    return reportDateStr >= startDateStr && reportDateStr <= endDateStr;
   });
 }
 
@@ -664,6 +671,47 @@ function updateDailyContent(reports) {
   renderDailyReturnChart(filtered);
 }
 
+function getDateRangeFromFilterState() {
+  const todayStr = getTodayWIB(); // 🔥 Menggunakan helper WIB Anda (Format: "YYYY-MM-DD")
+  const now = new Date();
+  let startStr, endStr;
+
+  switch (currentFilterState.type) {
+    case "today":
+      startStr = todayStr;
+      endStr = todayStr;
+      break;
+    case "7days":
+      const date7 = new Date(now);
+      date7.setDate(date7.getDate() - 7);
+      startStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+      }).format(date7);
+      endStr = todayStr;
+      break;
+    case "1month":
+      const date1m = new Date(now);
+      date1m.setMonth(date1m.getMonth() - 1);
+      startStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+      }).format(date1m);
+      endStr = todayStr;
+      break;
+    case "custom":
+      startStr = currentFilterState.customStart || todayStr;
+      endStr = currentFilterState.customEnd || todayStr;
+      break;
+    default:
+      startStr = "1970-01-01";
+      endStr = todayStr;
+  }
+
+  return {
+    start: startStr,
+    end: endStr,
+  };
+}
+
 // ========== RENDER DAILY (PERTAMA KALI) ==========
 function renderDaily(reports) {
   const c = document.getElementById("daily");
@@ -675,6 +723,10 @@ function renderDaily(reports) {
   }
 
   cachedReports = reports;
+
+  // 🔥 PERBAIKAN: Update currentDateRange SEBELUM render
+  currentDateRange = getDateRangeFromFilterState();
+
   const filtered = filterReportsByDate(
     reports,
     currentFilterState.type,
@@ -920,6 +972,16 @@ function renderDaily(reports) {
       renderPerformanceSignalList(activeBtn.dataset.status);
     }
   }, 300);
+
+  // 🔥 PERBAIKAN: Refresh daftar saham jika terbuka
+  if (listBody && listBody.style.display !== "none") {
+    const activeBtn = document.querySelector(".perf-filter-btn.active");
+    if (activeBtn) {
+      renderPerformanceSignalList(activeBtn.dataset.status);
+    } else {
+      renderPerformanceSignalList("TP");
+    }
+  }
 }
 
 // ========== RENDER DAILY CHARTS ==========
@@ -1010,72 +1072,59 @@ function renderDailyCharts(parsed) {
   }
 }
 
-// ========== GET DATE RANGE FROM FILTER ==========
-function getDateRangeFromFilterState() {
-  const now = new Date();
-  let start, end;
-  switch (currentFilterState.type) {
-    case "today":
-      start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(now);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case "7days":
-      start = new Date(now);
-      start.setDate(now.getDate() - 7);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(now);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case "1month":
-      start = new Date(now);
-      start.setMonth(now.getMonth() - 1);
-      start.setHours(0, 0, 0, 0);
-      end = new Date(now);
-      end.setHours(23, 59, 59, 999);
-      break;
-    case "custom":
-      if (currentFilterState.customStart && currentFilterState.customEnd) {
-        start = new Date(currentFilterState.customStart);
-        end = new Date(currentFilterState.customEnd);
-      } else {
-        start = new Date(0);
-        end = new Date(now);
-      }
-      break;
-    default:
-      start = new Date(0);
-      end = new Date(now);
+// ========== HELPER: FETCH SINGLE SIGNAL DETAIL ==========
+async function fetchSingleSignal(stockCode, signalDate) {
+  try {
+    const res = await fetch("/api/signals");
+    if (!res.ok) throw new Error("Gagal fetch");
+    const data = await res.json();
+    const all = [...(data.running || []), ...(data.closed || [])];
+    return all.find(
+      (s) => s.stockCode === stockCode && s.signalDate === signalDate,
+    );
+  } catch (e) {
+    console.error("Error fetching single signal:", e);
+    return null;
   }
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  };
 }
 
-// ========== RENDER PERFORMANCE SIGNAL LIST (SAMA) ==========
+// 🔥 PERBAIKAN: RENDER PERFORMANCE SIGNAL LIST (DENGAN FALLBACK FETCH & EVENT LISTENER)
 async function renderPerformanceSignalList(status) {
   const container = document.getElementById("signalListContainer");
   if (!container) return;
-  if (!currentDateRange) {
-    container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;">Pilih rentang tanggal terlebih dahulu.</div>`;
+
+  if (!currentDateRange || !currentDateRange.start || !currentDateRange.end) {
+    container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;">Rentang tanggal tidak valid.</div>`;
     return;
   }
+
   const { start, end } = currentDateRange;
   container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Memuat...</div>`;
+
   try {
     const res = await fetch("/api/signals");
     if (!res.ok) throw new Error("Gagal fetch signals");
     const data = await res.json();
+
     const running = data.running || [];
     const closed = data.closed || [];
     const allSignals = [...running, ...closed];
+
+    // Filter berdasarkan tanggal
     const filteredByDate = allSignals.filter((s) => {
-      if (!s.signalDate) return false;
-      const datePart = s.signalDate.split(" ")[0];
-      return datePart >= start && datePart <= end;
+      let dateToCheck = null;
+      if (s.status === "TP" || s.status === "SL" || s.status === "STOP LOSS") {
+        dateToCheck = s.closeDate ? s.closeDate.split(" ")[0] : null;
+      } else if (s.status === "RUNNING") {
+        dateToCheck = s.signalDate ? s.signalDate.split(" ")[0] : null;
+      } else {
+        dateToCheck = s.signalDate ? s.signalDate.split(" ")[0] : null;
+      }
+      if (!dateToCheck) return false;
+      return dateToCheck >= start && dateToCheck <= end;
     });
+
+    // Filter berdasarkan status
     let filteredByStatus = [];
     if (status === "TP") {
       filteredByStatus = filteredByDate.filter((s) => s.status === "TP");
@@ -1088,29 +1137,90 @@ async function renderPerformanceSignalList(status) {
     } else {
       filteredByStatus = filteredByDate;
     }
+
+    // Update total count
     const totalCountEl = document.getElementById("signalTotalCount");
     if (totalCountEl) {
       totalCountEl.textContent = filteredByStatus.length;
     }
+
     if (!filteredByStatus.length) {
       container.innerHTML = `<div style="text-align:center;color:var(--text-secondary);padding:1rem;opacity:0.5;"><i class="fa-regular fa-circle" style="margin-right:0.3rem;"></i> Tidak ada sinyal dengan status ${status} pada periode ini</div>`;
       return;
     }
+
+    // Ambil harga dan info
     const symbols = [...new Set(filteredByStatus.map((s) => s.stockCode))];
     const [priceResults, infoResults] = await Promise.all([
       Promise.all(symbols.map((sym) => fetchStockPrice(sym))),
       Promise.all(symbols.map((sym) => fetchStockInfo(sym))),
     ]);
+
     const priceMap = {};
     const infoMap = {};
     symbols.forEach((sym, idx) => {
       priceMap[sym] = priceResults[idx];
       infoMap[sym] = infoResults[idx];
     });
+
     let html = `<div class="sig-list">`;
     html += renderSignalRows(filteredByStatus, priceMap, infoMap);
     html += `</div>`;
+
     container.innerHTML = html;
+
+    // 🔥 TAMBAHKAN EVENT LISTENER DENGAN LOGIKA FALLBACK
+    const rows = container.querySelectorAll(".sig-list-row");
+    rows.forEach((row) => {
+      row.addEventListener("click", async function () {
+        const stock = this.dataset.stock;
+        const date = this.dataset.date;
+
+        if (stock && date) {
+          triggerHaptic();
+
+          // 1. Coba cari di cache lokal (_allRunning/_allClosed) dulu
+          const allCached = [..._allRunning, ..._allClosed];
+          const localSignal = allCached.find(
+            (s) => s.stockCode === stock && s.signalDate === date,
+          );
+
+          if (localSignal) {
+            // Jika ada di cache, pakai cara lama (cari index)
+            const sorted = getSortedSignals();
+            const idx = sorted.findIndex(
+              (s) => s.stockCode === stock && s.signalDate === date,
+            );
+            if (idx !== -1) {
+              showSignalDetail(idx);
+            }
+          } else {
+            // 2. Fallback: Jika tidak ada di cache (karena kita di tab Daily), fetch manual
+            console.log("Signal not in cache, fetching manually...");
+            const signalData = await fetchSingleSignal(stock, date);
+
+            if (signalData) {
+              // Masukkan ke cache sementara agar konsisten
+              if (signalData.status === "RUNNING") _allRunning.push(signalData);
+              else _allClosed.push(signalData);
+
+              // Cari index lagi setelah dimasukkan ke cache
+              const sorted = getSortedSignals();
+              const idx = sorted.findIndex(
+                (s) => s.stockCode === stock && s.signalDate === date,
+              );
+              if (idx !== -1) {
+                showSignalDetail(idx);
+              } else {
+                alert("Gagal memuat detail sinyal.");
+              }
+            } else {
+              alert("Data sinyal tidak ditemukan untuk periode ini.");
+            }
+          }
+        }
+      });
+    });
   } catch (err) {
     console.error("Gagal render performance list:", err);
     container.innerHTML = `<div style="color:var(--danger);padding:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-right:0.3rem;"></i> Gagal memuat data</div>`;
@@ -1311,7 +1421,6 @@ function renderSignalRows(signals, priceMap, infoMap) {
     else scoreClass = "skip";
     const confBadge = `<span class="conf-score-badge" data-score="${scoreClass}">${confidence}/10</span>`;
 
-    // ========== SIGNAL TYPE BADGE ==========
     const signalType = (s.signalType || "WATCHLIST").toUpperCase();
     let badgeColor = "#71717a";
     let badgeBg = "rgba(113,113,122,0.15)";
@@ -1333,7 +1442,6 @@ function renderSignalRows(signals, priceMap, infoMap) {
       badgeBg = "rgba(239,68,68,0.15)";
       badgeIcon = "fa-arrow-trend-down";
     } else {
-      // WATCH / lainnya
       badgeColor = "#71717a";
       badgeBg = "rgba(113,113,122,0.15)";
       badgeIcon = "fa-eye";
@@ -1528,7 +1636,6 @@ async function showSignalList() {
   container.innerHTML = html;
   signalListRendered = true;
 
-  // Attach event listener untuk detail
   container.querySelectorAll(".sig-list-row").forEach((row) => {
     row.addEventListener("click", function (e) {
       const stock = this.dataset.stock;
@@ -2661,7 +2768,6 @@ function checkSignalChanges(running, closed) {
     });
   }
 
-  // Cek sinyal yang baru ditutup (TP/SL)
   const prevClosedArr = prevClosedIds ? prevClosedIds.split(",") : [];
   const currentClosedArr = currentClosedIds ? currentClosedIds.split(",") : [];
   const newClosed = currentClosedArr.filter(
@@ -2690,7 +2796,6 @@ function checkSignalChanges(running, closed) {
 
 // ========== NOTIFICATION UI ==========
 function renderNotificationModal() {
-  // Hapus modal lama jika ada
   const oldModal = document.getElementById("notificationModal");
   if (oldModal) oldModal.remove();
 
@@ -2727,7 +2832,6 @@ function renderNotificationModal() {
     overflow: hidden;
   `;
 
-  // Header
   const header = document.createElement("div");
   header.style.cssText = `
     display: flex;
@@ -2755,7 +2859,6 @@ function renderNotificationModal() {
     </div>
   `;
 
-  // Body (scrollable)
   const body = document.createElement("div");
   body.style.cssText = `
     padding: 0.5rem 1.25rem 1.25rem;
@@ -2793,7 +2896,6 @@ function renderNotificationModal() {
   modal.appendChild(modalContent);
   document.body.appendChild(modal);
 
-  // Event listeners
   document.getElementById("closeNotifModal").addEventListener("click", () => {
     modal.remove();
     markAllAsRead();
@@ -2801,7 +2903,7 @@ function renderNotificationModal() {
 
   document.getElementById("markAllReadBtn").addEventListener("click", () => {
     markAllAsRead();
-    renderNotificationModal(); // re-render
+    renderNotificationModal();
   });
 
   document.getElementById("clearNotifBtn").addEventListener("click", () => {
@@ -3104,7 +3206,6 @@ function requestNotificationPermission() {
     return;
   }
   if (Notification.permission === "granted") {
-    // Tampilkan modal notifikasi
     renderNotificationModal();
     return;
   }
@@ -3112,7 +3213,6 @@ function requestNotificationPermission() {
     if (perm === "granted") {
       document.querySelector(".notif-badge")?.classList.remove("active");
       sendNotification("✅ Berhasil", "Notifikasi diaktifkan!");
-      // Tampilkan modal setelah izin
       renderNotificationModal();
     } else alert("Izin notifikasi ditolak.");
   });
