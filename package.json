@@ -7,6 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "latest",
     "express": "latest",
     "moment": "latest",
