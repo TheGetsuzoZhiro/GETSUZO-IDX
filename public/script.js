@@ -1243,7 +1243,7 @@ function renderBsjpDetailContent(
   currentPrice,
   stockInfo,
 ) {
-  // Hitung gain (sama seperti sebelumnya)
+  // Hitung gain
   let gainAbs = 0,
     gainPct = 0,
     gainStr = "",
@@ -1326,14 +1326,24 @@ function renderBsjpDetailContent(
   const breakEvenStatus = s.breakEven ? "TP tercapai" : "Belum";
   const isClosed = s.status === "TP" || s.status === "SL";
 
-  // ===== STATUS STEP =====
-  const isStep1Active = true;
+  // ===== STATUS STEP (Dinamis) =====
+  const isRunningNow = s.status === "RUNNING";
+  const isTP = s.status === "TP";
+  const isSL = s.status === "SL";
+
+  // Step 1 (Entry) hijau jika masih RUNNING atau sudah TP (selalu hijau jika entry terjadi)
+  const isStep1Active = isRunningNow || isTP || isSL; // tetap aktif meskipun SL? tapi kalau SL tanpa BE, user minta abu-abu. Jadi kita perlu cek.
+  // Untuk SL tanpa breakEven, step1 tidak aktif.
+  const isStep1ActiveFinal =
+    isRunningNow || isTP || (isSL && s.breakEven === true);
+  // Step 2 (Break Even) aktif jika breakEven true
   const isStep2Active = s.breakEven === true;
-  const isStep3Active =
-    s.breakEven === true && (s.status === "RUNNING" || isClosed);
+  // Step 3 (Trailing Stop) aktif jika breakEven true dan (masih running atau TP)
+  const isStep3Active = s.breakEven === true && (isRunningNow || isTP);
+  // Step 3 gagal (merah) jika SL dan breakEven true (trailing stop kena)
   const isStep3Failed = s.status === "SL" && s.breakEven === true;
 
-  // ===== STEP ICON & COLOR (dengan opsi failed) =====
+  // ===== STEP ICON & COLOR =====
   function stepCircle(active, label, desc, icon, failed = false) {
     let bg, border, color, shadow;
     if (failed) {
@@ -1364,9 +1374,8 @@ function renderBsjpDetailContent(
   }
 
   // ===== PROGRESS BAR =====
-  // Prioritas: step3 (100%) > step2 (50%) > step1 (0%)
   let progressWidth = "0%";
-  if (isStep3Active) progressWidth = "100%";
+  if (isStep3Active || isStep3Failed) progressWidth = "100%";
   else if (isStep2Active) progressWidth = "50%";
   else progressWidth = "0%";
 
@@ -1377,7 +1386,7 @@ function renderBsjpDetailContent(
         <div style="height:100%; width:${progressWidth}; background:linear-gradient(90deg, ${isStep3Failed ? "#ef4444" : "#10b981"}, ${isStep3Failed ? "#ef4444" : "#10b981"}); border-radius:2px; transition:width 0.8s ease;"></div>
       </div>
       
-      ${stepCircle(isStep1Active, "Entry", "SL -2%", "1")}
+      ${stepCircle(isStep1ActiveFinal, "Entry", "SL -2%", "1")}
       ${stepCircle(isStep2Active, "Break Even", "TP 2% → BE", "2")}
       ${stepCircle(isStep3Active || isStep3Failed, "Trailing Stop", isStep3Failed ? "Stop Loss" : "Lock Profit 1%", "3", isStep3Failed)}
     </div>
