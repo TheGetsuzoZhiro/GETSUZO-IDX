@@ -65,32 +65,7 @@ const SignalSchema = new mongoose.Schema(
   { versionKey: false },
 );
 
-const ReportSchema = new mongoose.Schema(
-  {
-    type: { type: String, default: "daily" },
-    daily: [
-      {
-        id: Number,
-        date: String,
-        title: String,
-        content: String,
-      },
-    ],
-  },
-  { versionKey: false },
-);
-
 const SignalModel = mongoose.model("Signal", SignalSchema, "signals");
-const ReportModel = mongoose.model("Report", ReportSchema, "reports");
-
-// Helper untuk memastikan dokumen reports global dibaca dengan aman
-async function initReportDoc() {
-  let reportDoc = await ReportModel.findOne({ type: "daily" });
-  if (!reportDoc) {
-    reportDoc = { type: "daily", daily: [] };
-  }
-  return reportDoc;
-}
 
 // ============ YAHOO FINANCE & MARKET TIME HELPERS ============
 const yahooCache = new Map();
@@ -210,17 +185,7 @@ const PORT =
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Route 1: Mengambil Data Laporan / Report dari Mongo (Read-Only)
-app.get("/api/reports", async (req, res) => {
-  try {
-    const reportDoc = await initReportDoc();
-    res.json(reportDoc);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Route 2: Realtime Price Checker via Yahoo
+// Route untuk Realtime Price Checker via Yahoo
 const priceCacheBackend = new Map();
 app.get("/api/price/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
@@ -246,7 +211,7 @@ app.get("/api/price/:symbol", async (req, res) => {
   }
 });
 
-// Route 3: Mengambil Informasi Profil Saham & Logo
+// Route untuk Informasi Profil Saham & Logo
 const infoCache = new Map();
 app.get("/api/stock-info/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
@@ -277,20 +242,19 @@ app.get("/api/stock-info/:symbol", async (req, res) => {
   }
 });
 
+// Route untuk mengambil semua sinyal
 app.get("/api/signals", async (req, res) => {
   try {
     const allSignals = await SignalModel.find({});
     const running = allSignals.filter((s) => s.status === "RUNNING");
-
     const closed = allSignals.filter((s) => s.status !== "RUNNING");
-
     res.json({ running, closed });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Route 5: Mengambil Status Operasional Bursa Realtime
+// Route untuk Status Operasional Bursa Realtime
 app.get("/api/market-status", async (req, res) => {
   const open = await isMarketOpen();
   const now = moment().tz("Asia/Jakarta");
