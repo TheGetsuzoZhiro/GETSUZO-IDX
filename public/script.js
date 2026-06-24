@@ -580,11 +580,11 @@ function updateDailyContent(reports) {
     currentFilterState.customEnd,
   );
 
-  // Update header date range (tetap dipertahankan)
+  // Perbarui header date range
   const dateRangeEl = document.getElementById("reportDateRange");
   if (dateRangeEl) dateRangeEl.textContent = dateRange;
 
-  // Update stats grid
+  // Perbarui stats grid
   const statsContainer = document.getElementById("statsGridContainer");
   if (statsContainer) {
     statsContainer.innerHTML = `
@@ -597,7 +597,7 @@ function updateDailyContent(reports) {
     `;
   }
 
-  // Update best/worst
+  // Perbarui best/worst trade
   const bestWorstContainer = document.getElementById("bestWorstContainer");
   if (bestWorstContainer) {
     bestWorstContainer.innerHTML = `
@@ -612,7 +612,7 @@ function updateDailyContent(reports) {
     `;
   }
 
-  // Update positions (jika ada)
+  // Perbarui Posisi (jika ada)
   const positionsContainer = document.getElementById("positionsContainer");
   if (positionsContainer) {
     if (agg.positions.length) {
@@ -652,12 +652,6 @@ function updateDailyContent(reports) {
                         ${p.return.toFixed(2)}%
                       </span>
                     </div>
-                    <span class="sig-status-stamp" style="width:20px; height:20px;">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" style="width:100%; height:100%;">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" />
-                        <polyline points="12 6 12 12 16 14" stroke="currentColor" />
-                      </svg>
-                    </span>
                   </div>
                 </div>
               </div>
@@ -672,8 +666,26 @@ function updateDailyContent(reports) {
     }
   }
 
-  // Update chart
+  // --- FIX CHART ---
+  // Perbarui Line Chart Cumulative Return
   renderDailyReturnChart(filtered);
+  // Panggil ulang Win Rate agar angkanya berubah sesuai rentang tanggal!
+  renderDailyCharts(agg);
+
+  // --- FIX DAFTAR SAHAM ---
+  // Perbarui rentang waktu global agar API fetch daftar saham membaca filter yang baru
+  currentDateRange = getDateRangeFromFilterState();
+
+  // Trigger pembaruan list daftar saham berdasarkan tombol status yang sedang aktif (TP, SL, ALL)
+  const listBody = document.getElementById("signalListBody");
+  if (listBody && listBody.style.display !== "none") {
+    const activeBtn = document.querySelector(".perf-filter-btn.active");
+    if (activeBtn) {
+      renderPerformanceSignalList(activeBtn.dataset.status);
+    } else {
+      renderPerformanceSignalList("TP");
+    }
+  }
 }
 
 function getDateRangeFromFilterState() {
@@ -831,11 +843,11 @@ function renderDaily(reports) {
         <!-- HEADER -->
         <div id="reportHeader" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.5rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);">
           <div class="emit-left">
-            <span class="emit-ticker" style="font-size:1.5rem;">
-              <i class="fas fa-chart-line" style="color:#3b82f6; margin-right:0.5rem;"></i> ${dateRange}
-            </span>
-            <span id="reportDateRange" style="font-size:0.8rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${dateRange}</span>
-          </div>
+  <span class="emit-ticker" style="font-size:1.5rem;">
+    <i class="fas fa-chart-line" style="color:#3b82f6; margin-right:0.5rem;"></i> Trade Summary
+  </span>
+  <span id="reportDateRange" style="font-size:0.8rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${dateRange}</span>
+</div>
           <div class="emit-right">
             <span class="emit-date"><i class="far fa-calendar-alt" style="margin-right:0.3rem;"></i> ${new Date().toLocaleString("id-ID")}</span>
           </div>
@@ -1029,20 +1041,38 @@ function renderDaily(reports) {
   }
 }
 
-// ========== RENDER DAILY CHARTS ==========
 function renderDailyCharts(parsed) {
   const ctxWin = document.getElementById("dailyWinRateChart");
   if (ctxWin) {
-    const win = parseFloat((parsed.winRate || 0).toFixed(1));
-    const loss = parseFloat((100 - win).toFixed(1));
+    let win = parseFloat((parsed.winRate || 0).toFixed(1));
+    let loss = parseFloat((100 - win).toFixed(1));
+
+    // --- FIX WIN RATE 0% MERAH ---
+    // Jika tidak ada data transaksi sama sekali, atur Win Rate jadi 100% hijau
+    let displayData = [win, loss];
+    let displayColors = ["#10b981", "#ef4444"];
+    let centerText = win + "%";
+
+    if (parsed.tp === 0 && parsed.sl === 0) {
+      displayData = [100, 0]; // Paksa 100% full lingkaran
+      displayColors = ["#10b981", "#ef4444"]; // Lingkaran akan full hijau
+      centerText = "100%"; // Menampilkan tulisan 100%
+    }
+
+    // --- FIX CHART GLITCH (OVERLAP) ---
+    // Hancurkan instance chart lama jika sudah ada sebelum digambar ulang
+    let existingChart = Chart.getChart(ctxWin);
+    if (existingChart) {
+      existingChart.destroy();
+    }
 
     new Chart(ctxWin, {
       type: "doughnut",
       data: {
         datasets: [
           {
-            data: [win, loss],
-            backgroundColor: ["#10b981", "#ef4444"],
+            data: displayData,
+            backgroundColor: displayColors,
             borderWidth: 0,
             cutout: "70%",
           },
@@ -1075,7 +1105,7 @@ function renderDailyCharts(parsed) {
             ctx.fillStyle = "#ffffff";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(win + "%", left + width / 2, top + height / 2);
+            ctx.fillText(centerText, left + width / 2, top + height / 2);
             ctx.restore();
           },
         },
@@ -1085,6 +1115,12 @@ function renderDailyCharts(parsed) {
 
   const ctxSignal = document.getElementById("dailySignalChart");
   if (ctxSignal) {
+    // Hancurkan chart lama jika ada
+    let existingSignalChart = Chart.getChart(ctxSignal);
+    if (existingSignalChart) {
+      existingSignalChart.destroy();
+    }
+
     new Chart(ctxSignal, {
       type: "bar",
       data: {
@@ -1178,8 +1214,327 @@ async function showDailySignalDetail(stockCode, signalDate) {
   }
 }
 
+function renderBsjpDetail(s, container, onBack) {
+  let stockInfo = { longName: s.stockCode, logoUrl: null };
+  let currentPrice = null;
+
+  // Ambil info saham
+  fetchStockInfo(s.stockCode)
+    .then((info) => {
+      if (info) stockInfo = info;
+    })
+    .catch(() => {});
+
+  // Ambil harga dari Yahoo
+  fetchStockPrice(s.stockCode)
+    .then((price) => {
+      currentPrice = price;
+      renderBsjpDetailContent(s, container, onBack, currentPrice, stockInfo);
+    })
+    .catch(() => {
+      renderBsjpDetailContent(s, container, onBack, null, stockInfo);
+    });
+}
+
+function renderBsjpDetailContent(
+  s,
+  container,
+  onBack,
+  currentPrice,
+  stockInfo,
+) {
+  // Hitung gain (sama seperti sebelumnya)
+  let gainAbs = 0,
+    gainPct = 0,
+    gainStr = "",
+    gainColor = "",
+    arrowIcon = "";
+  let isRunning = s.status === "RUNNING" && s.entryPrice && currentPrice;
+  if (isRunning) {
+    gainAbs = currentPrice - s.entryPrice;
+    gainPct = (gainAbs / s.entryPrice) * 100;
+    const absGain = Math.abs(gainAbs).toFixed(0);
+    const absPct = Math.abs(gainPct).toFixed(2);
+    if (Math.abs(gainAbs) < 0.01) {
+      gainColor = "var(--text-secondary)";
+      gainStr = "0 (0.00%)";
+      arrowIcon = "";
+    } else if (gainAbs > 0) {
+      arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
+      gainColor = "#10b981";
+      gainStr = `${arrowIcon} ${absGain} (+${absPct}%)`;
+    } else {
+      arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+      gainColor = "#ef4444";
+      gainStr = `${arrowIcon} ${absGain} (-${absPct}%)`;
+    }
+  } else if (s.status === "RUNNING" && !currentPrice) {
+    gainStr = "—";
+    gainColor = "var(--text-secondary)";
+  } else {
+    if (s.status === "TP" || s.status === "SL") {
+      const ret = s.returnPercent || 0;
+      const sign = ret >= 0 ? "+" : "";
+      gainStr = `${sign}${ret.toFixed(2)}%`;
+      gainColor = ret >= 0 ? "#10b981" : "#ef4444";
+      if (ret > 0.01)
+        arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
+      else if (ret < -0.01)
+        arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
+    } else {
+      gainStr = "—";
+      gainColor = "var(--text-secondary)";
+      arrowIcon = "";
+    }
+  }
+
+  let displayPrice = "—",
+    priceArrow = "";
+  if (s.status === "TP" && s.exitPrice) {
+    displayPrice = Number(s.exitPrice).toLocaleString("id-ID");
+    const ret = s.returnPercent || 0;
+    if (ret > 0)
+      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    else if (ret < 0)
+      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+  } else if (s.status === "SL" && s.exitPrice) {
+    displayPrice = Number(s.exitPrice).toLocaleString("id-ID");
+    const ret = s.returnPercent || 0;
+    if (ret > 0)
+      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    else if (ret < 0)
+      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+  } else if (currentPrice != null) {
+    displayPrice = Number(currentPrice).toLocaleString("id-ID");
+    if (gainAbs > 0)
+      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+    else if (gainAbs < 0)
+      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+  }
+
+  let statusStamp = "";
+  if (s.status === "TP")
+    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${hitSvg}</span>`;
+  else if (s.status === "SL" || s.status === "STOP LOSS")
+    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${missedSvg}</span>`;
+
+  const logoUrl = `https://assets.stockbit.com/logos/companies/${s.stockCode}.png`;
+  const parqetUrl = `https://assets.parqet.com/logos/symbol/${s.stockCode}.png`;
+  const bgColor = getColorFromCode(s.stockCode);
+  const logoHtml = `<span class="detail-logo-text"><img src="${logoUrl}" alt="${s.stockCode}" style="width:50px; height:64px; object-fit:contain; border:none; background:transparent; display:block;" onerror="this.onerror=null; this.src='${parqetUrl}'; this.onerror=function(){ this.style.display='none'; this.nextElementSibling.style.display='inline-block'; }"><span style="display:none; width:64px; height:64px; line-height:64px; text-align:center; background:${bgColor}; color:#fff; font-size:1.1rem; font-weight:700; font-family:'JetBrains Mono',monospace;">${s.stockCode.substring(0, 2)}</span></span>`;
+
+  const breakEvenStatus = s.breakEven ? "TP tercapai" : "Belum";
+  const isClosed = s.status === "TP" || s.status === "SL";
+
+  // ===== STATUS STEP =====
+  const isStep1Active = true;
+  const isStep2Active = s.breakEven === true;
+  const isStep3Active =
+    s.breakEven === true && (s.status === "RUNNING" || isClosed);
+  const isStep3Failed = s.status === "SL" && s.breakEven === true;
+
+  // ===== STEP ICON & COLOR (dengan opsi failed) =====
+  function stepCircle(active, label, desc, icon, failed = false) {
+    let bg, border, color, shadow;
+    if (failed) {
+      bg = "#ef4444";
+      border = "#ef4444";
+      color = "#ffffff";
+      shadow = "0 0 0 4px rgba(239,68,68,0.2)";
+    } else if (active) {
+      bg = "#10b981";
+      border = "#10b981";
+      color = "#ffffff";
+      shadow = "0 0 0 4px rgba(16,185,129,0.2)";
+    } else {
+      bg = "#2a2a2a";
+      border = "rgba(255,255,255,0.1)";
+      color = "var(--text-secondary)";
+      shadow = "0 0 0 4px #121212";
+    }
+    return `
+      <div style="flex:1; text-align:center; z-index:2; position:relative;">
+        <div style="width:34px; height:34px; background:${bg}; border:2px solid ${border}; color:${color}; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto; font-size:0.8rem; font-weight:700; box-shadow: ${shadow}; transition:all 0.3s ease;">
+          ${icon}
+        </div>
+        <div style="font-size:0.7rem; font-weight:600; color:${active || failed ? "var(--text-primary)" : "var(--text-secondary)"}; margin-top:0.4rem;">${label}</div>
+        <div style="font-size:0.5rem; color:${failed ? "#ef4444" : active ? "#10b981" : "var(--text-secondary)"}; margin-top:0.1rem; opacity:0.8;">${desc}</div>
+      </div>
+    `;
+  }
+
+  // ===== PROGRESS BAR =====
+  // Prioritas: step3 (100%) > step2 (50%) > step1 (0%)
+  let progressWidth = "0%";
+  if (isStep3Active) progressWidth = "100%";
+  else if (isStep2Active) progressWidth = "50%";
+  else progressWidth = "0%";
+
+  // ===== STRATEGY VISUAL =====
+  const strategyVisual = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin:0.8rem 0; position:relative; padding:0 0.5rem;">
+      <div style="position:absolute; top:17px; left:10%; right:10%; height:2px; background:rgba(255,255,255,0.08); z-index:1;">
+        <div style="height:100%; width:${progressWidth}; background:linear-gradient(90deg, ${isStep3Failed ? "#ef4444" : "#10b981"}, ${isStep3Failed ? "#ef4444" : "#10b981"}); border-radius:2px; transition:width 0.8s ease;"></div>
+      </div>
+      
+      ${stepCircle(isStep1Active, "Entry", "SL -2%", "1")}
+      ${stepCircle(isStep2Active, "Break Even", "TP 2% → BE", "2")}
+      ${stepCircle(isStep3Active || isStep3Failed, "Trailing Stop", isStep3Failed ? "Stop Loss" : "Lock Profit 1%", "3", isStep3Failed)}
+    </div>
+    <div style="display:flex; justify-content:center; gap:0.5rem; font-size:0.55rem; color:var(--text-secondary); margin-top:0.2rem;">
+      <span style="display:flex; align-items:center; gap:0.2rem;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Active
+      </span>
+      <span style="display:flex; align-items:center; gap:0.2rem;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#2a2a2a; border:1px solid rgba(255,255,255,0.1);"></span> Inactive
+      </span>
+      <span style="display:flex; align-items:center; gap:0.2rem;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span> Stop Loss
+      </span>
+    </div>
+    <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.5rem 0.6rem; margin-top:0.5rem; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:0.35rem; font-size:0.65rem; color:var(--text-secondary); line-height:1.3;">
+      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle" style="color:#8b5cf6; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Stop Loss awal <strong>-2%</strong> dari Entry.</span></div>
+      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle-check" style="color:#10b981; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Jika TP 2% tercapai, SL pindah ke Entry (Break Even).</span></div>
+      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle-check" style="color:#10b981; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Setelah BE, SL menjadi <strong>Trailing 1%</strong> di bawah High.</span></div>
+    </div>
+  `;
+
+  // ===== BREAK EVEN =====
+  const breakEvenDisplay = `
+    <div style="display:flex; align-items:center; gap:0.35rem; font-weight:600; color:${s.breakEven ? "#10b981" : "#f59e0b"};">
+      <i class="fa-solid ${s.breakEven ? "fa-check-circle" : "fa-xmark-circle"}" style="font-size:0.95rem;"></i>
+      <span style="font-size:0.85rem;">${breakEvenStatus}</span>
+    </div>
+  `;
+
+  // ===== TRAILING / CLOSED =====
+  let trailingDisplay = "";
+  if (isClosed) {
+    const exitLabel = s.status === "TP" ? "Trade Closed" : "Stop Loss Hit";
+    const exitIcon = s.status === "TP" ? "fa-check-circle" : "fa-xmark-circle";
+    const exitColor = s.status === "TP" ? "var(--success)" : "var(--danger)";
+    trailingDisplay = `
+      <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
+        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-flag-checkered" style="margin-right:0.2rem;"></i>${exitLabel}</div>
+        <div style="font-weight:600; color:${exitColor}; font-size:0.85rem; display:flex; align-items:center; gap:0.3rem;">
+          <i class="fa-solid ${exitIcon}" style="font-size:0.8rem;"></i>
+          ${fmtPrice(s.exitPrice)}
+        </div>
+      </div>
+    `;
+  } else if (s.breakEven) {
+    trailingDisplay = `
+      <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
+        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-chart-line" style="margin-right:0.2rem;"></i>Trailing Stop</div>
+        <div style="font-weight:600; color:var(--success); font-size:0.85rem;">${fmtPrice(s.sl)}</div>
+      </div>
+    `;
+  } else {
+    trailingDisplay = `
+      <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); opacity:0.5; display:flex; flex-direction:column; justify-content:center;">
+        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-chart-line" style="margin-right:0.2rem;"></i>Trailing Stop</div>
+        <div style="font-weight:600; color:var(--text-secondary); font-size:0.85rem;">—</div>
+      </div>
+    `;
+  }
+
+  // ===== HTML LENGKAP =====
+  const html = `
+    <div class="pro-detail-container">
+      <button class="sig-back-btn" id="bsjpBackBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Kembali
+      </button>
+      <div style="background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid rgba(255,255,255,0.08); overflow:hidden; margin-bottom:0.5rem;">
+
+        <!-- HEADER -->
+        <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div style="display:grid; grid-template-columns: 1fr auto; gap:0.2rem 0.5rem; align-items:center;">
+            <div style="grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:0.1rem;">
+              <span style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.2rem; color:var(--text-primary);">${escapeHtml(s.stockCode)}</span>
+              <span style="font-size:0.8rem; color:var(--text-secondary); opacity:0.7;">${escapeHtml(stockInfo.longName)}</span>
+            </div>
+            <div style="grid-column:1; grid-row:2; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span style="font-family:'JetBrains Mono'; font-weight:600; font-size:1rem; color:var(--text-primary); display:flex; align-items:center;">
+                ${priceArrow} ${displayPrice}
+              </span>
+              <span style="font-family:'JetBrains Mono'; font-size:0.75rem; color:${gainColor}; font-weight:600; display:flex; align-items:center; gap:0.2rem;">${gainStr}</span>
+              ${statusStamp}
+            </div>
+            <div style="grid-column:2; grid-row:1 / 3; display:flex; align-items:center; justify-content:center;">${logoHtml}</div>
+            <div style="grid-column:1 / 3; grid-row:3; margin-top:0.1rem;">
+              <span class="emit-tag"><i class="fa-solid fa-chart-simple" style="margin-right:3px; font-size:0.65rem;"></i>BSJP</span>
+            </div>
+            <div style="grid-column:1 / 3; grid-row:4; font-size:0.7rem; color:var(--text-secondary); opacity:0.6; margin-top:0.1rem;">${s.signalDate ? formatFullDateTime(s.signalDate) : ""}</div>
+          </div>
+        </div>
+
+        <!-- PRICE LADDER -->
+        <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div class="price-ladder" style="display:flex; justify-content:space-around; align-items:center; gap:0.5rem; padding:0.2rem 0; margin:0;">
+            <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
+              <span class="label" style="font-size:0.6rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.2rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Entry
+              </span>
+              <span class="value" style="font-family:'JetBrains Mono'; font-weight:600; font-size:0.9rem; color:var(--text-primary);">${fmtPrice(s.entryPrice)}</span>
+              <span class="change neutral" style="font-size:0.6rem; color:var(--text-secondary);">—</span>
+            </div>
+            <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
+              <span class="label" style="font-size:0.6rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.2rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> TAKE PROFIT
+              </span>
+              <span class="value" style="font-family:'JetBrains Mono'; font-weight:600; font-size:0.9rem; color:var(--success);">${fmtPrice(s.tp1)}</span>
+              <span class="change positive" style="font-size:0.6rem; color:var(--success);">+2.00%</span>
+            </div>
+            <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
+              <span class="label" style="font-size:0.6rem; color:var(--text-secondary); display:flex; align-items:center; gap:0.2rem;">
+                <i class="fa-solid fa-triangle-exclamation"></i> STOP LOSS
+              </span>
+              <span class="value" style="font-family:'JetBrains Mono'; font-weight:600; font-size:0.9rem; color:var(--danger);">${fmtPrice(s.sl)}</span>
+              <span class="change negative" style="font-size:0.6rem; color:var(--danger);">-2.00%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- STRATEGI FLOW DINAMIS -->
+        <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div style="background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:0.65rem 0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.1rem;">
+              <i class="fa-solid fa-layer-group" style="color:var(--text-primary); font-size:1rem;"></i>
+              <span style="font-weight:600; font-size:0.85rem; color:var(--text-primary); letter-spacing: 0.3px;">BSJP Strategy Flow</span>
+              ${s.status === "RUNNING" ? `<span style="font-size:0.55rem; background:rgba(16,185,129,0.15); color:#10b981; padding:0.1rem 0.5rem; border-radius:12px; margin-left:auto;">Active</span>` : `<span style="font-size:0.55rem; background:rgba(255,255,255,0.05); color:var(--text-secondary); padding:0.1rem 0.5rem; border-radius:12px; margin-left:auto;">${s.status}</span>`}
+            </div>
+            ${strategyVisual}
+          </div>
+        </div>
+
+        <!-- BREAK EVEN & TRAILING -->
+        <div style="padding:0.5rem 0.75rem;">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; font-size:0.7rem;">
+            <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
+              <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-scale-balanced" style="margin-right:0.2rem;"></i>Break Even</div>
+              ${breakEvenDisplay}
+            </div>
+            ${trailingDisplay}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+  const backBtn = container.querySelector("#bsjpBackBtn");
+  if (backBtn && onBack) backBtn.addEventListener("click", onBack);
+}
+
 async function renderSignalDetailToContainer(signal, container, onBack) {
   const s = signal;
+
+  // ===== BSJP SPECIAL DETAIL =====
+  if (s.signalType === "BSJP") {
+    renderBsjpDetail(s, container, onBack);
+    return;
+  }
+
   let stockInfo = { longName: s.stockCode, logoUrl: null };
 
   let currentPrice = null;
@@ -1564,6 +1919,7 @@ function getSortedSignals() {
     WATCHLIST: 3,
     SELL: 4,
     "STRONG SELL": 5,
+    BSJP: 6,
   };
   allSignals.sort((a, b) => {
     const pa = priority[a.signalType] || 99;
@@ -1744,7 +2100,7 @@ function renderSignalRows(signals, priceMap, infoMap) {
 
     let confDisplay;
     if (isNoData) {
-      confDisplay = `<span class="conf-score-badge" data-score="na">N/A</span>`;
+      confDisplay = "";
     } else {
       let scoreClass = "normal";
       if (confidence >= 8) scoreClass = "high";
@@ -1758,7 +2114,11 @@ function renderSignalRows(signals, priceMap, infoMap) {
     let badgeColor = "#71717a";
     let badgeBg = "rgba(113,113,122,0.15)";
     let badgeIcon = "fa-eye";
-    if (signalType.includes("STRONG BUY")) {
+    if (signalType === "BSJP") {
+      badgeColor = "#8b5cf6";
+      badgeBg = "rgba(139,92,246,0.15)";
+      badgeIcon = "fa-chart-simple";
+    } else if (signalType.includes("STRONG BUY")) {
       badgeColor = "#fbbf24";
       badgeBg = "rgba(251,191,36,0.15)";
       badgeIcon = "fa-fire";
@@ -1919,56 +2279,134 @@ async function showSignalList() {
     arrowIconTotal = "";
   }
 
-  let headerTitle =
-    filterType === "today"
-      ? "SINYAL HARI INI"
-      : filterType === "running"
-        ? "ALL RUNNING"
-        : "SAHAM";
-  let html = `
-    <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
-      <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
-        ${headerTitle}
-        <span style="font-weight:400; color:var(--text-secondary); opacity:0.6;">(${filteredSignals.length})</span>
-      </span>
-      <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
-        GAIN: ${arrowIconTotal} <span style="font-weight:600; color:${totalGainColor};">${totalGainStr}</span>
-      </span>
-    </div>
-    <div class="sig-list">
-  `;
+  let html = "";
 
+  // ========== FILTER TODAY ==========
   if (filterType === "today") {
     const session1 = filteredSignals.filter(
-      (s) => getSessionFromDate(s.signalDate) === 1,
+      (s) => getSessionFromDate(s.signalDate) === 1 && s.signalType !== "BSJP",
     );
     const session2 = filteredSignals.filter(
-      (s) => getSessionFromDate(s.signalDate) === 2,
+      (s) => getSessionFromDate(s.signalDate) === 2 && s.signalType !== "BSJP",
     );
+    const bsjpToday = filteredSignals.filter((s) => s.signalType === "BSJP");
     const other = filteredSignals.filter(
-      (s) => getSessionFromDate(s.signalDate) === null,
+      (s) =>
+        getSessionFromDate(s.signalDate) === null && s.signalType !== "BSJP",
     );
 
+    // Header utama
+    html += `
+      <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
+        <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+          SINYAL HARI INI
+          <span style="font-weight:400; color:var(--text-secondary); opacity:0.6;">(${filteredSignals.length})</span>
+        </span>
+        <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+          GAIN: ${arrowIconTotal} <span style="font-weight:600; color:${totalGainColor};">${totalGainStr}</span>
+        </span>
+      </div>
+    `;
+
+    // SESI 1
     if (session1.length) {
-      html += `<div class="session-header">SESI 1</span></div>`;
-      html += renderSignalRows(session1, priceMap, infoMap);
+      html += `<div class="session-header">SESI 1</div>`;
+      html += `<div class="sig-list">${renderSignalRows(session1, priceMap, infoMap)}</div>`;
     }
+
+    // SESI 2
     if (session2.length) {
-      html += `<div class="session-header">SESI 2</span></div>`;
-      html += renderSignalRows(session2, priceMap, infoMap);
+      html += `<div class="session-header">SESI 2</div>`;
+      html += `<div class="sig-list">${renderSignalRows(session2, priceMap, infoMap)}</div>`;
     }
+
+    // BSJP
+    if (bsjpToday.length) {
+      html += `<div class="session-header" style="color:var(--text-primary);">BSJP</div>`;
+      html += `<div class="sig-list">${renderSignalRows(bsjpToday, priceMap, infoMap)}</div>`;
+    }
+
+    // OTHER
     if (other.length) {
       html += `<div class="session-header">LAINNYA</div>`;
-      html += renderSignalRows(other, priceMap, infoMap);
+      html += `<div class="sig-list">${renderSignalRows(other, priceMap, infoMap)}</div>`;
     }
+
+    // ========== FILTER RUNNING ==========
+  } else if (filterType === "running") {
+    const runningBiasa = filteredSignals.filter((s) => s.signalType !== "BSJP");
+    const runningBsjp = filteredSignals.filter((s) => s.signalType === "BSJP");
+    const allRunning = [...runningBiasa, ...runningBsjp];
+
+    // Hitung gain gabungan untuk ALL RUNNING (termasuk BSJP)
+    let totalGain = 0,
+      totalCount = 0;
+    allRunning.forEach((s) => {
+      if (s.entryPrice && priceMap[s.stockCode]) {
+        const gain =
+          ((priceMap[s.stockCode] - s.entryPrice) / s.entryPrice) * 100;
+        if (gain !== 0) {
+          totalGain += gain;
+          totalCount++;
+        }
+      }
+    });
+    const avgTotalGain = totalCount > 0 ? totalGain / totalCount : 0;
+    const totalGainStr =
+      totalCount > 0
+        ? (avgTotalGain >= 0 ? "+" : "") + avgTotalGain.toFixed(2) + "%"
+        : "—";
+    const totalGainColor = avgTotalGain >= 0 ? "#10b981" : "#ef4444";
+
+    // ALL RUNNING (header utama dengan gain total)
+    if (allRunning.length) {
+      html += `
+        <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
+          <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+            ALL RUNNING
+            <span style="font-weight:400; color:var(--text-secondary); opacity:0.6;">(${allRunning.length})</span>
+          </span>
+          <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+            GAIN: <span style="font-weight:600; color:${totalGainColor};">${totalGainStr}</span>
+          </span>
+        </div>
+        <div class="sig-list">${renderSignalRows(runningBiasa, priceMap, infoMap)}</div>
+      `;
+
+      // Jika ada BSJP, tampilkan sebagai sub-section tanpa GAIN
+      if (runningBsjp.length) {
+        html += `
+          <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem; color:var(--text-primary);">
+            <span style="font-weight:600; font-size:0.9rem;">
+              BSJP
+              <span style="font-weight:400; color:var(--text-secondary); opacity:0.6;">(${runningBsjp.length})</span>
+            </span>
+          </div>
+          <div class="sig-list">${renderSignalRows(runningBsjp, priceMap, infoMap)}</div>
+        `;
+      }
+    }
+
+    // ========== FILTER ALL (tanpa filter) ==========
   } else {
-    html += renderSignalRows(filteredSignals, priceMap, infoMap);
+    html += `
+      <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
+        <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+          SAHAM
+          <span style="font-weight:400; color:var(--text-secondary); opacity:0.6;">(${filteredSignals.length})</span>
+        </span>
+        <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+          GAIN: ${arrowIconTotal} <span style="font-weight:600; color:${totalGainColor};">${totalGainStr}</span>
+        </span>
+      </div>
+      <div class="sig-list">${renderSignalRows(filteredSignals, priceMap, infoMap)}</div>
+    `;
   }
 
-  html += `</div>`;
   container.innerHTML = html;
   signalListRendered = true;
 
+  // Event listener untuk klik row
   container.querySelectorAll(".sig-list-row").forEach((row) => {
     row.addEventListener("click", function (e) {
       const stock = this.dataset.stock;
@@ -2018,6 +2456,12 @@ async function showSignalDetail(index) {
   if (!s) return;
 
   const container = document.getElementById("signals");
+
+  // ===== BSJP SPECIAL DETAIL =====
+  if (s.signalType === "BSJP") {
+    renderBsjpDetail(s, container, () => showSignalList());
+    return;
+  }
 
   let stockInfo = { longName: s.stockCode, logoUrl: null };
   let currentPrice = null;
@@ -2159,9 +2603,6 @@ async function showSignalDetail(index) {
   const isStrongSell = upperLabel.includes("STRONG SELL");
   const isBuy = upperLabel.includes("BUY") && !isStrongBuy;
   const isSell = upperLabel.includes("SELL") && !isStrongSell;
-  const isWatch =
-    upperLabel.includes("WATCH") ||
-    (!isBuy && !isSell && !isStrongBuy && !isStrongSell);
 
   let signalIcon, signalBg, signalBorder, signalLabelText, signalDesc;
 
@@ -2734,11 +3175,9 @@ ${headerResetStyle}
   container.innerHTML = html;
   window.scrollTo(0, 0);
 
-  // Gunakan requestAnimationFrame untuk memastikan DOM sudah diupdate
   requestAnimationFrame(() => {
     setTimeout(() => {
       if (!document.contains(container)) return;
-      // Pastikan chart dan broker di-render di container yang tepat
       renderDetailCharts(s, container);
       renderBrokerFlow(s.topBuyers, s.topSellers, s.sinyalBandar, container);
       renderPatternVisual(s.patternChart, container);
@@ -2752,7 +3191,6 @@ function renderBrokerFlow(
   sinyalBandar,
   container = document,
 ) {
-  // Cari container di dalam container atau fallback
   let containerEl = container.querySelector
     ? container.querySelector("#brokerFlowContainer")
     : null;
@@ -2764,7 +3202,6 @@ function renderBrokerFlow(
     return;
   }
 
-  // Kosongkan dulu untuk menghindari duplikasi
   containerEl.innerHTML = "";
 
   if (!sinyalBandar || sinyalBandar.trim() === "") {
@@ -2933,7 +3370,6 @@ function renderIndRow(label, displayVal, compareVal, entryVal) {
 
 // ========== CHARTS ==========
 function renderDetailCharts(s, container = document) {
-  // Destroy chart lama jika ada
   if (detailCharts.rsi) {
     try {
       detailCharts.rsi.destroy();
@@ -2950,7 +3386,6 @@ function renderDetailCharts(s, container = document) {
   Chart.defaults.color = "#71717a";
   Chart.defaults.font.family = "'JetBrains Mono', monospace";
 
-  // Cari canvas di dalam container, jika tidak ada fallback ke document
   let ctxRsi = container.querySelector
     ? container.querySelector("#proRsiChart")
     : null;
