@@ -19,7 +19,6 @@ let currentDetailIndex = null;
 // ========== STATE UNTUK DAILY & SIGNAL LIST ==========
 let dailyRendered = false;
 let signalListRendered = false;
-let cachedReports = [];
 let currentFilterState = {
   type: "today",
   customStart: null,
@@ -276,141 +275,25 @@ function showLoading(containerId) {
     c.innerHTML = `<div class="loading-state"><div class="loader"><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-ring"></div></div><p>Loading...</p></div>`;
 }
 
-// ========== REPORT PARSER ==========
-function parseDailyReport(content) {
-  const result = {
-    newSignals: 0,
-    tp: 0,
-    sl: 0,
-    running: 0,
-    winRate: 0,
-    totalReturn: 0,
-    bestTrade: null,
-    worstTrade: null,
-    positions: [],
-  };
-  if (!content) return result;
-  const lines = content.split("\n").map((l) => l.trim());
-  lines.forEach((line) => {
-    if (line.includes("New Signals:") || line.includes("Total Signals:")) {
-      const val = line.match(/\d+/);
-      if (val) result.newSignals = parseInt(val[0]);
-    } else if (line.includes("TP:")) {
-      const val = line.match(/\d+/);
-      if (val) result.tp = parseInt(val[0]);
-    } else if (line.includes("SL:")) {
-      const val = line.match(/\d+/);
-      if (val) result.sl = parseInt(val[0]);
-    } else if (line.includes("Running:")) {
-      const val = line.match(/\d+/);
-      if (val) result.running = parseInt(val[0]);
-    } else if (line.includes("Win Rate:")) {
-      const val = line.match(/[\d.]+/);
-      if (val) result.winRate = parseFloat(val[0]);
-    } else if (line.includes("Total Return:")) {
-      const val = line.match(/([+-]?[\d.]+)/);
-      if (val) result.totalReturn = parseFloat(val[1]);
-    } else if (line.includes("Best Trade:")) {
-      const match = line.match(/Best Trade:\s*\**\s*([A-Z]+)\s*([+-]?[\d.]+)%/);
-      if (match) {
-        result.bestTrade = { stock: match[1], return: parseFloat(match[2]) };
-      }
-    } else if (line.includes("Worst Trade:")) {
-      const match = line.match(
-        /Worst Trade:\s*\**\s*([A-Z]+)\s*([+-]?[\d.]+)%/,
-      );
-      if (match) {
-        result.worstTrade = { stock: match[1], return: parseFloat(match[2]) };
-      }
-    } else if (line.includes(".")) {
-      const match = line.match(
-        /(\d+)\.\s+([A-Z]+):\s+Entry\s+([\d,]+),\s+Current\s+([^,]+),\s+Return\s+([\d.]+)%/,
-      );
-      if (match) {
-        result.positions.push({
-          stock: match[2],
-          entry: parseFloat(match[3].replace(/,/g, "")),
-          current:
-            match[4].trim() === "?"
-              ? null
-              : parseFloat(match[4].replace(/,/g, "")),
-          return: parseFloat(match[5]),
-          hold: 0,
-        });
-        const holdMatch = line.match(/Hold\s+(\d+)\s+days/);
-        if (holdMatch) {
-          result.positions[result.positions.length - 1].hold = parseInt(
-            holdMatch[1],
-          );
-        }
-      }
+// ========== FUNGSI BARU BERBASIS SIGNALS (Pengganti Report) ==========
+
+function filterSignalsByDate(signals, startDate, endDate) {
+  if (!signals || !signals.length) return [];
+  return signals.filter((s) => {
+    let dateToCheck = null;
+    if (s.status === "TP" || s.status === "SL" || s.status === "STOP LOSS") {
+      dateToCheck = s.closeDate ? s.closeDate.split(" ")[0] : null;
+    } else if (s.status === "RUNNING") {
+      dateToCheck = s.signalDate ? s.signalDate.split(" ")[0] : null;
+    } else {
+      dateToCheck = s.signalDate ? s.signalDate.split(" ")[0] : null;
     }
-  });
-  return result;
-}
-
-function createStatCard(label, value, color, icon) {
-  return `
-    <div style="background:rgba(255,255,255,0.02); border-radius:12px; padding:1rem; border:1px solid rgba(255,255,255,0.06); transition:all 0.2s; backdrop-filter:blur(4px);">
-      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
-        <i class="${icon}" style="color:${color}; font-size:1rem;"></i>
-        <span style="font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">${label}</span>
-      </div>
-      <div style="font-family:'JetBrains Mono'; font-size:1.5rem; font-weight:700; color:${color};">${value}</div>
-    </div>
-  `;
-}
-
-// ========== FILTER REPORTS ==========
-function filterReportsByDate(
-  reports,
-  filterType,
-  customStart = null,
-  customEnd = null,
-) {
-  if (!reports || !reports.length) return [];
-
-  const todayStr = getTodayWIB();
-  const now = new Date();
-  let startDateStr, endDateStr;
-
-  switch (filterType) {
-    case "today":
-      startDateStr = todayStr;
-      endDateStr = todayStr;
-      break;
-    case "7days":
-      const d7 = new Date(now);
-      d7.setDate(d7.getDate() - 7);
-      startDateStr = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-      }).format(d7);
-      endDateStr = todayStr;
-      break;
-    case "1month":
-      const dm = new Date(now);
-      dm.setMonth(dm.getMonth() - 1);
-      startDateStr = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-      }).format(dm);
-      endDateStr = todayStr;
-      break;
-    case "custom":
-      startDateStr = customStart || todayStr;
-      endDateStr = customEnd || todayStr;
-      break;
-    default:
-      return reports;
-  }
-
-  return reports.filter((r) => {
-    if (!r.date) return true;
-    const reportDateStr = r.date.slice(0, 10);
-    return reportDateStr >= startDateStr && reportDateStr <= endDateStr;
+    if (!dateToCheck) return false;
+    return dateToCheck >= startDate && dateToCheck <= endDate;
   });
 }
 
-function aggregateReports(reports) {
+function aggregateSignals(signals) {
   const result = {
     totalSignals: 0,
     tp: 0,
@@ -422,32 +305,54 @@ function aggregateReports(reports) {
     worstTrade: null,
     positions: [],
   };
-  let bestTrade = null;
-  let worstTrade = null;
-  reports.forEach((r) => {
-    const parsed = parseDailyReport(r.content);
-    result.totalSignals += parsed.newSignals;
-    result.tp += parsed.tp;
-    result.sl += parsed.sl;
-    result.running += parsed.running;
-    result.totalReturn += parsed.totalReturn;
-    if (parsed.bestTrade && parsed.bestTrade.return > 0) {
-      if (!bestTrade || parsed.bestTrade.return > bestTrade.return) {
-        bestTrade = parsed.bestTrade;
-      }
-    }
-    if (parsed.worstTrade) {
-      if (!worstTrade || parsed.worstTrade.return < worstTrade.return) {
-        worstTrade = parsed.worstTrade;
-      }
-    }
-    result.positions = result.positions.concat(parsed.positions);
-  });
-  result.bestTrade = bestTrade;
-  result.worstTrade = worstTrade;
-  const closed = result.tp + result.sl;
+
+  const closed = signals.filter(
+    (s) => s.status === "TP" || s.status === "SL" || s.status === "STOP LOSS",
+  );
+  const runningSignals = signals.filter((s) => s.status === "RUNNING");
+
+  result.tp = closed.filter((s) => s.status === "TP").length;
+  result.sl = closed.filter(
+    (s) => s.status === "SL" || s.status === "STOP LOSS",
+  ).length;
+  result.totalSignals = closed.length + runningSignals.length;
+  result.running = runningSignals.length;
+
+  const totalClosed = result.tp + result.sl;
   result.winRate =
-    closed > 0 ? Math.round((result.tp / closed) * 100 * 10) / 10 : 0;
+    totalClosed > 0 ? Math.round((result.tp / totalClosed) * 100 * 10) / 10 : 0;
+
+  let totalRet = 0;
+  closed.forEach((s) => {
+    totalRet += s.returnPercent || 0;
+  });
+  result.totalReturn = Math.round(totalRet * 100) / 100;
+
+  if (closed.length) {
+    const sorted = [...closed].sort(
+      (a, b) => (b.returnPercent || 0) - (a.returnPercent || 0),
+    );
+    const best = sorted[0];
+    if (best && best.returnPercent > 0) {
+      result.bestTrade = { stock: best.stockCode, return: best.returnPercent };
+    }
+    const worst = sorted[sorted.length - 1];
+    if (worst && worst.returnPercent < 0) {
+      result.worstTrade = {
+        stock: worst.stockCode,
+        return: worst.returnPercent,
+      };
+    }
+  }
+
+  result.positions = runningSignals.map((s) => ({
+    stock: s.stockCode,
+    entry: s.entryPrice,
+    current: null,
+    return: 0,
+    hold: s.holdingDays || 0,
+  }));
+
   return result;
 }
 
@@ -476,17 +381,75 @@ function getDateRangeText(filterType, customStart, customEnd) {
   }
 }
 
-// ========== RENDER DAILY RETURN CHART ==========
+function createStatCard(label, value, color, icon) {
+  return `
+    <div style="background:rgba(255,255,255,0.02); border-radius:12px; padding:1rem; border:1px solid rgba(255,255,255,0.06); transition:all 0.2s; backdrop-filter:blur(4px);">
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.3rem;">
+        <i class="${icon}" style="color:${color}; font-size:1rem;"></i>
+        <span style="font-size:0.65rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">${label}</span>
+      </div>
+      <div style="font-family:'JetBrains Mono'; font-size:1.5rem; font-weight:700; color:${color};">${value}</div>
+    </div>
+  `;
+}
+
+function getDateRangeFromFilterState() {
+  const todayStr = getTodayWIB();
+  const now = new Date();
+  let startStr, endStr;
+
+  switch (currentFilterState.type) {
+    case "today":
+      startStr = todayStr;
+      endStr = todayStr;
+      break;
+    case "7days": {
+      const d7 = new Date(now);
+      d7.setDate(d7.getDate() - 7);
+      startStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+      }).format(d7);
+      endStr = todayStr;
+      break;
+    }
+    case "1month": {
+      const dm = new Date(now);
+      dm.setMonth(dm.getMonth() - 1);
+      startStr = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+      }).format(dm);
+      endStr = todayStr;
+      break;
+    }
+    case "custom":
+      startStr = currentFilterState.customStart || todayStr;
+      endStr = currentFilterState.customEnd || todayStr;
+      break;
+    default:
+      startStr = "1970-01-01";
+      endStr = todayStr;
+  }
+  return { start: startStr, end: endStr };
+}
+
+// ========== RENDER DAILY RETURN CHART (BERBASIS SIGNALS) ==========
 let returnChartInstance = null;
 
-function renderDailyReturnChart(reports) {
+function renderDailyReturnChartFromSignals(signals) {
   const ctx = document.getElementById("dailyReturnChart");
   if (!ctx) return;
   if (returnChartInstance) {
     returnChartInstance.destroy();
     returnChartInstance = null;
   }
-  if (!reports || reports.length === 0) {
+
+  const closed = signals
+    .filter(
+      (s) => s.status === "TP" || s.status === "SL" || s.status === "STOP LOSS",
+    )
+    .sort((a, b) => (a.closeDate || "").localeCompare(b.closeDate || ""));
+
+  if (!closed.length) {
     const parent = ctx.parentElement;
     if (parent) {
       parent.innerHTML =
@@ -494,22 +457,16 @@ function renderDailyReturnChart(reports) {
     }
     return;
   }
-  const labels = reports.map((r) => {
-    const title = r.title || "";
-    const match = title.match(/(\d+\s+\w+\s+\d{4})/);
-    return match ? match[1] : title;
-  });
-  const dailyReturns = reports.map((r) => {
-    const parsed = parseDailyReport(r.content);
-    return parsed.totalReturn || 0;
-  });
+
+  const labels = closed.map((s, idx) => `T${idx + 1}`);
   let cumulative = 0;
-  const cumulativeReturns = dailyReturns.map((ret) => {
-    cumulative += ret;
+  const dataPoints = closed.map((s) => {
+    cumulative += s.returnPercent || 0;
     return cumulative;
   });
+
   const labelsWithStart = ["Start", ...labels];
-  const dataWithStart = [0, ...cumulativeReturns];
+  const dataWithStart = [0, ...dataPoints];
 
   returnChartInstance = new Chart(ctx, {
     type: "line",
@@ -521,27 +478,43 @@ function renderDailyReturnChart(reports) {
           data: dataWithStart,
           borderColor: "#8b5cf6",
           backgroundColor: "rgba(139,92,246,0.1)",
-          borderWidth: 2,
+          borderWidth: 2.5,
           fill: true,
           tension: 0.3,
-          pointBackgroundColor: dataWithStart.map((r) =>
-            r >= 0 ? "#10b981" : "#ef4444",
-          ),
-          pointRadius: dataWithStart.length === 2 ? 8 : 5,
-          pointBorderColor: "#ffffff",
-          pointBorderWidth: 1,
+          // ===== MODIFIKASI DI SINI =====
+          // Hilangkan bulatan hijau/merah
+          pointRadius: 0,
+          // Tapi tetap tampilkan titik kecil saat di-hover/disentuh
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: "#ffffff",
+          pointHoverBorderColor: "#8b5cf6",
+          pointHoverBorderWidth: 2,
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      // ===== AKTIFKAN INTERAKSI =====
+      // Mode 'index' + intersect false agar tooltip mengikuti jari/cursor
+      interaction: {
+        intersect: false,
+        mode: "index",
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: true,
+          backgroundColor: "rgba(0,0,0,0.85)",
+          titleColor: "#ffffff",
+          bodyColor: "#c084fc",
+          borderColor: "rgba(139,92,246,0.4)",
+          borderWidth: 1,
+          cornerRadius: 10,
+          padding: 12,
           callbacks: {
             label: function (context) {
-              return "Cumulative Return: " + context.parsed.y.toFixed(2) + "%";
+              return "Return: " + context.parsed.y.toFixed(2) + "%";
             },
           },
         },
@@ -565,26 +538,23 @@ function renderDailyReturnChart(reports) {
   });
 }
 
-function updateDailyContent(reports) {
-  if (!reports || !reports.length) return;
-  const filtered = filterReportsByDate(
-    reports,
-    currentFilterState.type,
-    currentFilterState.customStart,
-    currentFilterState.customEnd,
-  );
-  const agg = aggregateReports(filtered);
+// ========== UPDATE DAILY CONTENT (BERBASIS SIGNALS) ==========
+async function updateDailyContent() {
+  await fetchSignals(false);
+  const allSignals = [..._allRunning, ..._allClosed];
+  const { start, end } = getDateRangeFromFilterState();
+  const filtered = filterSignalsByDate(allSignals, start, end);
+  const agg = aggregateSignals(filtered);
+
   const dateRange = getDateRangeText(
     currentFilterState.type,
     currentFilterState.customStart,
     currentFilterState.customEnd,
   );
 
-  // Perbarui header date range
   const dateRangeEl = document.getElementById("reportDateRange");
   if (dateRangeEl) dateRangeEl.textContent = dateRange;
 
-  // Perbarui stats grid
   const statsContainer = document.getElementById("statsGridContainer");
   if (statsContainer) {
     statsContainer.innerHTML = `
@@ -597,7 +567,6 @@ function updateDailyContent(reports) {
     `;
   }
 
-  // Perbarui best/worst trade
   const bestWorstContainer = document.getElementById("bestWorstContainer");
   if (bestWorstContainer) {
     bestWorstContainer.innerHTML = `
@@ -612,18 +581,28 @@ function updateDailyContent(reports) {
     `;
   }
 
-  // Perbarui Posisi (jika ada)
   const positionsContainer = document.getElementById("positionsContainer");
   if (positionsContainer) {
     if (agg.positions.length) {
+      const posWithPrice = await Promise.all(
+        agg.positions.map(async (p) => {
+          const price = await fetchStockPrice(p.stock);
+          let currentReturn = 0;
+          if (price && p.entry) {
+            currentReturn = ((price - p.entry) / p.entry) * 100;
+          }
+          return { ...p, current: price, return: currentReturn };
+        }),
+      );
+
       positionsContainer.innerHTML = `
         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
           <i class="fa-solid fa-list" style="color:var(--text-secondary);"></i>
           <span style="font-weight:600; font-size:1rem; color:var(--text-primary);">Posisi Berjalan</span>
-          <span style="font-size:0.7rem; color:var(--text-secondary); opacity:0.6;">(${agg.positions.length})</span>
+          <span style="font-size:0.7rem; color:var(--text-secondary); opacity:0.6;">(${posWithPrice.length})</span>
         </div>
         <div class="sig-list" style="gap:0.4rem;">
-          ${agg.positions
+          ${posWithPrice
             .map(
               (p) => `
             <div class="sig-list-row" style="cursor:default; min-height:64px;">
@@ -646,7 +625,7 @@ function updateDailyContent(reports) {
                   </div>
                   <div class="sig-right" style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0; margin-left:auto;">
                     <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.05rem;">
-                      <span class="stock-price" style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">${p.current || "—"}</span>
+                      <span class="stock-price" style="font-size:0.8rem; font-weight:600; color:var(--text-primary);">${p.current ? fmtPriceNoRp(p.current) : "—"}</span>
                       <span style="font-family:'JetBrains Mono'; font-size:0.6rem; color:${p.return >= 0 ? "#10b981" : "#ef4444"}; font-weight:600; display:flex; align-items:center; gap:0.2rem;">
                         ${p.return >= 0 ? '<i class="fa-solid fa-arrow-trend-up" style="font-size:0.6rem; color:#10b981;"></i>' : '<i class="fa-solid fa-arrow-trend-down" style="font-size:0.6rem; color:#ef4444;"></i>'}
                         ${p.return.toFixed(2)}%
@@ -666,17 +645,10 @@ function updateDailyContent(reports) {
     }
   }
 
-  // --- FIX CHART ---
-  // Perbarui Line Chart Cumulative Return
-  renderDailyReturnChart(filtered);
-  // Panggil ulang Win Rate agar angkanya berubah sesuai rentang tanggal!
+  renderDailyReturnChartFromSignals(filtered);
   renderDailyCharts(agg);
 
-  // --- FIX DAFTAR SAHAM ---
-  // Perbarui rentang waktu global agar API fetch daftar saham membaca filter yang baru
-  currentDateRange = getDateRangeFromFilterState();
-
-  // Trigger pembaruan list daftar saham berdasarkan tombol status yang sedang aktif (TP, SL, ALL)
+  currentDateRange = { start, end };
   const listBody = document.getElementById("signalListBody");
   if (listBody && listBody.style.display !== "none") {
     const activeBtn = document.querySelector(".perf-filter-btn.active");
@@ -688,45 +660,219 @@ function updateDailyContent(reports) {
   }
 }
 
-function getDateRangeFromFilterState() {
-  const todayStr = getTodayWIB();
-  const now = new Date();
-  let startStr, endStr;
+// ========== RENDER DAILY ==========
+function renderDaily() {
+  const c = document.getElementById("daily");
+  if (!c) return;
 
-  switch (currentFilterState.type) {
-    case "today":
-      startStr = todayStr;
-      endStr = todayStr;
-      break;
-    case "7days":
-      const date7 = new Date(now);
-      date7.setDate(date7.getDate() - 7);
-      startStr = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-      }).format(date7);
-      endStr = todayStr;
-      break;
-    case "1month":
-      const date1m = new Date(now);
-      date1m.setMonth(date1m.getMonth() - 1);
-      startStr = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-      }).format(date1m);
-      endStr = todayStr;
-      break;
-    case "custom":
-      startStr = currentFilterState.customStart || todayStr;
-      endStr = currentFilterState.customEnd || todayStr;
-      break;
-    default:
-      startStr = "1970-01-01";
-      endStr = todayStr;
-  }
+  c.innerHTML = `<div class="loading-state"><div class="loader"><div class="loader-ring"></div><div class="loader-ring"></div><div class="loader-ring"></div></div><p>Loading...</p></div>`;
+  dailyRendered = false;
 
-  return {
-    start: startStr,
-    end: endStr,
-  };
+  fetchSignals(false)
+    .then(() => {
+      const allSignals = [..._allRunning, ..._allClosed];
+      if (!allSignals.length) {
+        c.innerHTML = `<div class="loading-state"><p>Belum ada data sinyal.</p></div>`;
+        dailyRendered = false;
+        return;
+      }
+
+      const { start, end } = getDateRangeFromFilterState();
+      currentDateRange = { start, end };
+      const filtered = filterSignalsByDate(allSignals, start, end);
+      const agg = aggregateSignals(filtered);
+      const dateRange = getDateRangeText(
+        currentFilterState.type,
+        currentFilterState.customStart,
+        currentFilterState.customEnd,
+      );
+
+      let html = `
+        <div id="dailyContentWrapper">
+          <div class="pro-detail-container">
+            <div id="tradeSummaryContainer" style="margin-bottom:0.5rem;"></div>
+
+            <div id="reportHeader" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.5rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div class="emit-left">
+                <span class="emit-ticker" style="font-size:1.5rem;">
+                  <i class="fas fa-chart-line" style="color:#3b82f6; margin-right:0.5rem;"></i> Trade Summary
+                </span>
+                <span id="reportDateRange" style="font-size:0.8rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${dateRange}</span>
+              </div>
+              <div class="emit-right">
+                <span class="emit-date"><i class="far fa-calendar-alt" style="margin-right:0.3rem;"></i> ${new Date().toLocaleString("id-ID")}</span>
+              </div>
+            </div>
+
+            <div id="statsGridContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:1rem; margin-bottom:1.5rem;">
+              ${createStatCard("Sinyal Baru", agg.totalSignals, "#3b82f6", "fa-solid fa-bell")}
+              ${createStatCard("TP", agg.tp, "#10b981", "fa-solid fa-check-circle")}
+              ${createStatCard("SL", agg.sl, "#ef4444", "fa-solid fa-times-circle")}
+              ${createStatCard("Running", agg.running, "#f59e0b", "fa-solid fa-play-circle")}
+              ${createStatCard("Win Rate", agg.winRate.toFixed(1) + "%", "#8b5cf6", "fa-solid fa-trophy")}
+              ${createStatCard("Total Return", agg.totalReturn.toFixed(2) + "%", agg.totalReturn >= 0 ? "#10b981" : "#ef4444", "fa-solid fa-arrow-trend-up")}
+            </div>
+
+            <div id="bestWorstContainer" style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+              <div class="pro-card" style="border-left: 3px solid #10b981;">
+                <div class="pro-card-title"><i class="fa-solid fa-crown" style="color:#fbbf24; margin-right:0.3rem;"></i> Best Trade</div>
+                ${agg.bestTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#10b981;">${agg.bestTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">+${agg.bestTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
+              </div>
+              <div class="pro-card" style="border-left: 3px solid #ef4444;">
+                <div class="pro-card-title"><i class="fa-solid fa-skull" style="color:#ef4444; margin-right:0.3rem;"></i> Worst Trade</div>
+                ${agg.worstTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#ef4444;">${agg.worstTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">${agg.worstTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
+              </div>
+            </div>
+
+            <div class="pro-card" style="margin-bottom:1.5rem;">
+              <div class="pro-card-title"><i class="fa-solid fa-chart-line" style="margin-right:0.3rem;"></i> Cumulative Return Gain</div>
+              <div style="height:180px;">
+                <canvas id="dailyReturnChart"></canvas>
+              </div>
+            </div>
+
+            <div class="pro-grid-2" style="margin-bottom:1.5rem;">
+              <div class="pro-card">
+                <div class="pro-card-title"><i class="fa-solid fa-chart-pie" style="margin-right:0.3rem;"></i> Win Rate</div>
+                <div style="height:140px; position:relative;">
+                  <canvas id="dailyWinRateChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:2rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:1.5rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.06); transition:0.2s;" id="signalListToggle">
+                <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
+                  <i class="fas fa-list-ul" style="color:#8b5cf6;"></i> Daftar Saham
+                  <span id="signalTotalCount" style="font-size:0.7rem; color:var(--text-secondary); background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;">0</span>
+                </span>
+                <i class="fas fa-chevron-up" id="signalListChevron" style="font-size:0.7rem; opacity:0.5; transition:transform 0.2s; margin-left:auto;"></i>
+              </div>
+              <div id="signalListBody" style="display:block; margin-top:0.75rem;">
+                <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.75rem; padding:0.2rem 0;">
+                  <button class="perf-filter-btn active" data-status="TP" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+                    <i class="fa-solid fa-arrow-trend-up" style="font-size:0.6rem;"></i> TP
+                  </button>
+                  <button class="perf-filter-btn" data-status="SL" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+                    <i class="fa-solid fa-arrow-trend-down" style="font-size:0.6rem;"></i> SL
+                  </button>
+                  <button class="perf-filter-btn" data-status="RUNNING" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+                    <i class="fa-solid fa-play" style="font-size:0.6rem;"></i> Running
+                  </button>
+                  <button class="perf-filter-btn" data-status="ALL" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
+                    <i class="fa-solid fa-table-cells-large" style="font-size:0.6rem;"></i> All
+                  </button>
+                </div>
+                <div id="signalListContainer"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="dailyDetailContainer" style="display:none; margin-top:1.5rem;"></div>
+      `;
+
+      c.innerHTML = html;
+      dailyRendered = true;
+
+      renderTradeSummary();
+
+      const summaryContainer = document.getElementById("tradeSummaryContainer");
+      if (summaryContainer) {
+        summaryContainer.addEventListener("click", function (e) {
+          const toggle = e.target.closest("#tradeSummaryToggle");
+          if (toggle) {
+            e.stopPropagation();
+            currentFilterState.isOpen = !currentFilterState.isOpen;
+            renderTradeSummary();
+            return;
+          }
+          const filterBtn = e.target.closest(".filter-btn");
+          if (filterBtn) {
+            e.stopPropagation();
+            const filter = filterBtn.dataset.filter;
+            if (filter === "custom") {
+              currentFilterState.type = "custom";
+              currentFilterState.isOpen = false;
+              renderTradeSummary();
+              updateDailyContent();
+              return;
+            }
+            currentFilterState.type = filter;
+            currentFilterState.customStart = null;
+            currentFilterState.customEnd = null;
+            currentFilterState.isOpen = false;
+            renderTradeSummary();
+            updateDailyContent();
+            return;
+          }
+          const applyBtn = e.target.closest("#applyCustomFilter");
+          if (applyBtn) {
+            e.stopPropagation();
+            const start = document.getElementById("customStartDate")?.value;
+            const end = document.getElementById("customEndDate")?.value;
+            if (start && end) {
+              currentFilterState.type = "custom";
+              currentFilterState.customStart = start;
+              currentFilterState.customEnd = end;
+              currentFilterState.isOpen = false;
+              renderTradeSummary();
+              updateDailyContent();
+            } else {
+              alert("Pilih tanggal mulai dan akhir");
+            }
+          }
+        });
+      }
+
+      setTimeout(() => {
+        renderDailyReturnChartFromSignals(filtered);
+        renderDailyCharts(agg);
+      }, 150);
+
+      const listToggle = document.getElementById("signalListToggle");
+      const listBody = document.getElementById("signalListBody");
+      const chevron = document.getElementById("signalListChevron");
+      if (listToggle && listBody && chevron) {
+        listToggle.addEventListener("click", function (e) {
+          e.stopPropagation();
+          const isOpen = listBody.style.display !== "none";
+          listBody.style.display = isOpen ? "none" : "block";
+          chevron.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
+          if (!isOpen) {
+            const activeBtn = document.querySelector(".perf-filter-btn.active");
+            if (activeBtn) {
+              renderPerformanceSignalList(activeBtn.dataset.status);
+            } else {
+              renderPerformanceSignalList("TP");
+            }
+          }
+        });
+      }
+
+      c.querySelectorAll(".perf-filter-btn").forEach((btn) => {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          const status = this.dataset.status;
+          c.querySelectorAll(".perf-filter-btn").forEach((b) =>
+            b.classList.remove("active"),
+          );
+          this.classList.add("active");
+          renderPerformanceSignalList(status);
+        });
+      });
+
+      setTimeout(() => {
+        const activeBtn = document.querySelector(".perf-filter-btn.active");
+        if (activeBtn && listBody && listBody.style.display !== "none") {
+          renderPerformanceSignalList(activeBtn.dataset.status);
+        }
+      }, 300);
+    })
+    .catch((err) => {
+      console.error("Gagal render daily:", err);
+      c.innerHTML = `<div class="loading-state"><p style="color:var(--danger);">Gagal memuat data sinyal</p></div>`;
+      dailyRendered = false;
+    });
 }
 
 function renderTradeSummary() {
@@ -808,259 +954,22 @@ function renderTradeSummary() {
   container.innerHTML = html;
 }
 
-function renderDaily(reports) {
-  const c = document.getElementById("daily");
-  if (!c) return;
-  if (!reports || !reports.length) {
-    c.innerHTML = `<div class="loading-state"><p>Belum ada laporan harian.</p></div>`;
-    dailyRendered = false;
-    return;
-  }
-
-  cachedReports = reports;
-  currentDateRange = getDateRangeFromFilterState();
-
-  const filtered = filterReportsByDate(
-    reports,
-    currentFilterState.type,
-    currentFilterState.customStart,
-    currentFilterState.customEnd,
-  );
-  const agg = aggregateReports(filtered);
-  const dateRange = getDateRangeText(
-    currentFilterState.type,
-    currentFilterState.customStart,
-    currentFilterState.customEnd,
-  );
-  currentDateRange = getDateRangeFromFilterState();
-
-  let html = `
-    <div id="dailyContentWrapper">
-      <div class="pro-detail-container">
-        <!-- TRADE SUMMARY -->
-        <div id="tradeSummaryContainer" style="margin-bottom:0.5rem;"></div>
-
-        <!-- HEADER -->
-        <div id="reportHeader" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.5rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);">
-          <div class="emit-left">
-  <span class="emit-ticker" style="font-size:1.5rem;">
-    <i class="fas fa-chart-line" style="color:#3b82f6; margin-right:0.5rem;"></i> Trade Summary
-  </span>
-  <span id="reportDateRange" style="font-size:0.8rem; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${dateRange}</span>
-</div>
-          <div class="emit-right">
-            <span class="emit-date"><i class="far fa-calendar-alt" style="margin-right:0.3rem;"></i> ${new Date().toLocaleString("id-ID")}</span>
-          </div>
-        </div>
-
-        <!-- STATISTICS GRID -->
-        <div id="statsGridContainer" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:1rem; margin-bottom:1.5rem;">
-          ${createStatCard("Sinyal Baru", agg.totalSignals, "#3b82f6", "fa-solid fa-bell")}
-          ${createStatCard("TP", agg.tp, "#10b981", "fa-solid fa-check-circle")}
-          ${createStatCard("SL", agg.sl, "#ef4444", "fa-solid fa-times-circle")}
-          ${createStatCard("Running", agg.running, "#f59e0b", "fa-solid fa-play-circle")}
-          ${createStatCard("Win Rate", agg.winRate.toFixed(1) + "%", "#8b5cf6", "fa-solid fa-trophy")}
-          ${createStatCard("Total Return", agg.totalReturn.toFixed(2) + "%", agg.totalReturn >= 0 ? "#10b981" : "#ef4444", "fa-solid fa-arrow-trend-up")}
-        </div>
-
-        <!-- BEST & WORST TRADE -->
-        <div id="bestWorstContainer" style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
-          <div class="pro-card" style="border-left: 3px solid #10b981;">
-            <div class="pro-card-title"><i class="fa-solid fa-crown" style="color:#fbbf24; margin-right:0.3rem;"></i> Best Trade</div>
-            ${agg.bestTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#10b981;">${agg.bestTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">+${agg.bestTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
-          </div>
-          <div class="pro-card" style="border-left: 3px solid #ef4444;">
-            <div class="pro-card-title"><i class="fa-solid fa-skull" style="color:#ef4444; margin-right:0.3rem;"></i> Worst Trade</div>
-            ${agg.worstTrade ? `<div style="font-size:1.2rem; font-weight:700; color:#ef4444;">${agg.worstTrade.stock} <span style="font-size:0.9rem; font-weight:400; color:var(--text-secondary);">${agg.worstTrade.return.toFixed(2)}%</span></div>` : '<div style="color:var(--text-secondary); opacity:0.5;">Belum ada</div>'}
-          </div>
-        </div>
-
-        <!-- CHART RETURN GAIN -->
-        <div class="pro-card" style="margin-bottom:1.5rem;">
-          <div class="pro-card-title"><i class="fa-solid fa-chart-line" style="margin-right:0.3rem;"></i> Cumulative Return Gain</div>
-          <div style="height:180px;">
-            <canvas id="dailyReturnChart"></canvas>
-          </div>
-        </div>
-
-        <!-- CHARTS ROW -->
-        <div class="pro-grid-2" style="margin-bottom:1.5rem;">
-          <div class="pro-card">
-            <div class="pro-card-title"><i class="fa-solid fa-chart-pie" style="margin-right:0.3rem;"></i> Win Rate</div>
-            <div style="height:140px; position:relative;">
-              <canvas id="dailyWinRateChart"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- DAFTAR SAHAM -->
-        <div style="margin-top:2rem; border-top:1px solid rgba(255,255,255,0.06); padding-top:1.5rem;">
-          <div style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.06); transition:0.2s;" id="signalListToggle">
-            <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">
-              <i class="fas fa-list-ul" style="color:#8b5cf6;"></i> Daftar Saham
-              <span id="signalTotalCount" style="font-size:0.7rem; color:var(--text-secondary); background:rgba(255,255,255,0.05); padding:0.1rem 0.5rem; border-radius:12px;">0</span>
-            </span>
-            <i class="fas fa-chevron-up" id="signalListChevron" style="font-size:0.7rem; opacity:0.5; transition:transform 0.2s; margin-left:auto;"></i>
-          </div>
-          <div id="signalListBody" style="display:block; margin-top:0.75rem;">
-            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; margin-bottom:0.75rem; padding:0.2rem 0;">
-              <button class="perf-filter-btn active" data-status="TP" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
-                <i class="fa-solid fa-arrow-trend-up" style="font-size:0.6rem;"></i> TP
-              </button>
-              <button class="perf-filter-btn" data-status="SL" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
-                <i class="fa-solid fa-arrow-trend-down" style="font-size:0.6rem;"></i> SL
-              </button>
-              <button class="perf-filter-btn" data-status="RUNNING" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
-                <i class="fa-solid fa-play" style="font-size:0.6rem;"></i> Running
-              </button>
-              <button class="perf-filter-btn" data-status="ALL" style="padding:0.25rem 0.7rem; cursor:pointer; font-size:0.7rem; transition:0.2s; display:flex; align-items:center; gap:0.3rem;">
-                <i class="fa-solid fa-table-cells-large" style="font-size:0.6rem;"></i> All
-              </button>
-            </div>
-            <div id="signalListContainer"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="dailyDetailContainer" style="display:none; margin-top:1.5rem;"></div>
-  `;
-
-  c.innerHTML = html;
-  dailyRendered = true;
-
-  // Render trade summary pertama
-  renderTradeSummary();
-
-  // Event delegation untuk trade summary (toggle, filter, custom apply)
-  const summaryContainer = document.getElementById("tradeSummaryContainer");
-  if (summaryContainer) {
-    summaryContainer.addEventListener("click", function (e) {
-      // Toggle Trade Summary
-      const toggle = e.target.closest("#tradeSummaryToggle");
-      if (toggle) {
-        e.stopPropagation();
-        currentFilterState.isOpen = !currentFilterState.isOpen;
-        renderTradeSummary();
-        return;
-      }
-
-      // Filter button
-      const filterBtn = e.target.closest(".filter-btn");
-      if (filterBtn) {
-        e.stopPropagation();
-        const filter = filterBtn.dataset.filter;
-        if (filter === "custom") {
-          currentFilterState.type = "custom";
-          currentFilterState.isOpen = false;
-          renderTradeSummary();
-          updateDailyContent(cachedReports);
-          return;
-        }
-        currentFilterState.type = filter;
-        currentFilterState.customStart = null;
-        currentFilterState.customEnd = null;
-        currentFilterState.isOpen = false;
-        renderTradeSummary();
-        updateDailyContent(cachedReports);
-        return;
-      }
-
-      // Apply Custom Filter
-      const applyBtn = e.target.closest("#applyCustomFilter");
-      if (applyBtn) {
-        e.stopPropagation();
-        const start = document.getElementById("customStartDate")?.value;
-        const end = document.getElementById("customEndDate")?.value;
-        if (start && end) {
-          currentFilterState.type = "custom";
-          currentFilterState.customStart = start;
-          currentFilterState.customEnd = end;
-          currentFilterState.isOpen = false;
-          renderTradeSummary();
-          updateDailyContent(cachedReports);
-        } else {
-          alert("Pilih tanggal mulai dan akhir");
-        }
-      }
-    });
-  }
-
-  // Render chart
-  setTimeout(() => {
-    renderDailyReturnChart(filtered);
-    renderDailyCharts(agg);
-  }, 150);
-
-  // Event listener untuk Daftar Saham (sama seperti sebelumnya)
-  const listToggle = document.getElementById("signalListToggle");
-  const listBody = document.getElementById("signalListBody");
-  const chevron = document.getElementById("signalListChevron");
-  if (listToggle && listBody && chevron) {
-    listToggle.addEventListener("click", function (e) {
-      e.stopPropagation();
-      const isOpen = listBody.style.display !== "none";
-      listBody.style.display = isOpen ? "none" : "block";
-      chevron.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
-      if (!isOpen) {
-        const activeBtn = document.querySelector(".perf-filter-btn.active");
-        if (activeBtn) {
-          renderPerformanceSignalList(activeBtn.dataset.status);
-        } else {
-          renderPerformanceSignalList("TP");
-        }
-      }
-    });
-  }
-
-  c.querySelectorAll(".perf-filter-btn").forEach((btn) => {
-    btn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      const status = this.dataset.status;
-      c.querySelectorAll(".perf-filter-btn").forEach((b) =>
-        b.classList.remove("active"),
-      );
-      this.classList.add("active");
-      renderPerformanceSignalList(status);
-    });
-  });
-
-  setTimeout(() => {
-    const activeBtn = document.querySelector(".perf-filter-btn.active");
-    if (activeBtn && listBody && listBody.style.display !== "none") {
-      renderPerformanceSignalList(activeBtn.dataset.status);
-    }
-  }, 300);
-
-  if (listBody && listBody.style.display !== "none") {
-    const activeBtn = document.querySelector(".perf-filter-btn.active");
-    if (activeBtn) {
-      renderPerformanceSignalList(activeBtn.dataset.status);
-    } else {
-      renderPerformanceSignalList("TP");
-    }
-  }
-}
-
 function renderDailyCharts(parsed) {
   const ctxWin = document.getElementById("dailyWinRateChart");
   if (ctxWin) {
     let win = parseFloat((parsed.winRate || 0).toFixed(1));
     let loss = parseFloat((100 - win).toFixed(1));
 
-    // --- FIX WIN RATE 0% MERAH ---
-    // Jika tidak ada data transaksi sama sekali, atur Win Rate jadi 100% hijau
     let displayData = [win, loss];
     let displayColors = ["#10b981", "#ef4444"];
     let centerText = win + "%";
 
     if (parsed.tp === 0 && parsed.sl === 0) {
-      displayData = [100, 0]; // Paksa 100% full lingkaran
-      displayColors = ["#10b981", "#ef4444"]; // Lingkaran akan full hijau
-      centerText = "100%"; // Menampilkan tulisan 100%
+      displayData = [100, 0];
+      displayColors = ["#10b981", "#ef4444"];
+      centerText = "100%";
     }
 
-    // --- FIX CHART GLITCH (OVERLAP) ---
-    // Hancurkan instance chart lama jika sudah ada sebelum digambar ulang
     let existingChart = Chart.getChart(ctxWin);
     if (existingChart) {
       existingChart.destroy();
@@ -1115,7 +1024,6 @@ function renderDailyCharts(parsed) {
 
   const ctxSignal = document.getElementById("dailySignalChart");
   if (ctxSignal) {
-    // Hancurkan chart lama jika ada
     let existingSignalChart = Chart.getChart(ctxSignal);
     if (existingSignalChart) {
       existingSignalChart.destroy();
@@ -1127,7 +1035,7 @@ function renderDailyCharts(parsed) {
         labels: ["New", "TP", "SL", "Running"],
         datasets: [
           {
-            data: [parsed.newSignals, parsed.tp, parsed.sl, parsed.running],
+            data: [parsed.totalSignals, parsed.tp, parsed.sl, parsed.running],
             backgroundColor: ["#3b82f6", "#10b981", "#ef4444", "#f59e0b"],
             borderRadius: 6,
           },
@@ -1150,21 +1058,6 @@ function renderDailyCharts(parsed) {
         },
       },
     });
-  }
-}
-
-async function fetchSingleSignal(stockCode, signalDate) {
-  try {
-    const res = await fetch("/api/signals");
-    if (!res.ok) throw new Error("Gagal fetch");
-    const data = await res.json();
-    const all = [...(data.running || []), ...(data.closed || [])];
-    return all.find(
-      (s) => s.stockCode === stockCode && s.signalDate === signalDate,
-    );
-  } catch (e) {
-    console.error("Error fetching single signal:", e);
-    return null;
   }
 }
 
@@ -1214,18 +1107,17 @@ async function showDailySignalDetail(stockCode, signalDate) {
   }
 }
 
+// ========== BSJP RENDER ==========
 function renderBsjpDetail(s, container, onBack) {
   let stockInfo = { longName: s.stockCode, logoUrl: null };
   let currentPrice = null;
 
-  // Ambil info saham
   fetchStockInfo(s.stockCode)
     .then((info) => {
       if (info) stockInfo = info;
     })
     .catch(() => {});
 
-  // Ambil harga dari Yahoo
   fetchStockPrice(s.stockCode)
     .then((price) => {
       currentPrice = price;
@@ -1243,7 +1135,6 @@ function renderBsjpDetailContent(
   currentPrice,
   stockInfo,
 ) {
-  // ===== 1. HITUNG GAIN SECARA DINAMIS & AKURAT =====
   let gainAbs = 0,
     gainPct = 0,
     gainStr = "",
@@ -1254,21 +1145,17 @@ function renderBsjpDetailContent(
   const isClosed = s.status === "TP" || s.status === "SL";
   const hasCurrentPrice = currentPrice != null;
 
-  // Kalkulasi Math untuk Gain
   if (isRunningNow && s.entryPrice && hasCurrentPrice) {
     gainAbs = currentPrice - s.entryPrice;
     gainPct = (gainAbs / s.entryPrice) * 100;
   } else if (isClosed && s.entryPrice && s.exitPrice) {
-    // Hitung dari Exit Price (Lebih akurat daripada s.returnPercent mentah)
     gainAbs = s.exitPrice - s.entryPrice;
     gainPct = (gainAbs / s.entryPrice) * 100;
   } else if (isClosed && s.returnPercent != null) {
-    // Fallback jika tidak ada exitPrice
     gainPct = s.returnPercent;
     gainAbs = (s.returnPercent / 100) * s.entryPrice;
   }
 
-  // Format Tampilan Teks Gain
   if (isRunningNow && !hasCurrentPrice) {
     gainStr = "—";
     gainColor = "var(--text-secondary)";
@@ -1281,17 +1168,16 @@ function renderBsjpDetailContent(
       gainStr = "0 (0.00%)";
       arrowIcon = "";
     } else if (gainAbs > 0) {
-      gainColor = "#10b981"; // Hijau (Profit)
+      gainColor = "#10b981";
       arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
       gainStr = `${arrowIcon} ${absGain} (+${absPct}%)`;
     } else {
-      gainColor = "#ef4444"; // Merah (Loss)
+      gainColor = "#ef4444";
       arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
       gainStr = `${arrowIcon} ${absGain} (-${absPct}%)`;
     }
   }
 
-  // Set Display Price & Arrow (Di atas logo)
   let displayPrice = "—",
     priceArrow = "";
 
@@ -1323,43 +1209,36 @@ function renderBsjpDetailContent(
 
   const breakEvenStatus = s.breakEven ? "TP tercapai" : "Belum";
 
-  // ===== 2. STATUS STEP (Logika Dinamis & Cerdas) =====
   const isTP = s.status === "TP";
-  const isHardSL = s.status === "SL" && !s.breakEven; // Kena SL sebelum BEP (Rugi)
-  const isTrailingHit = s.status === "SL" && s.breakEven; // Kena SL setelah BEP (Aman/Profit)
+  const isHardSL = s.status === "SL" && !s.breakEven;
+  const isTrailingHit = s.status === "SL" && s.breakEven;
 
-  // Evaluasi State tiap Step
   const isStep1Active = true;
   const step1State = isHardSL ? "failed" : "default";
 
   const isStep2Active = s.breakEven === true;
 
   const isStep3Active = s.breakEven === true;
-  const step3State = isTrailingHit ? "warning" : "default"; // Warning (Amber) untuk perlindungan profit
+  const step3State = isTrailingHit ? "warning" : "default";
 
-  // Modifikasi stepCircle agar mendukung state "warning"
   function stepCircle(active, label, desc, icon, state = "default") {
     let bg, border, color, shadow;
     if (state === "failed") {
-      // Merah (Loss)
       bg = "#ef4444";
       border = "#ef4444";
       color = "#ffffff";
       shadow = "0 0 0 4px rgba(239,68,68,0.2)";
     } else if (state === "warning") {
-      // Orange/Amber (BEP / Trailing Hit)
       bg = "#f59e0b";
       border = "#f59e0b";
       color = "#ffffff";
       shadow = "0 0 0 4px rgba(245,158,11,0.2)";
     } else if (active) {
-      // Hijau (Berhasil dilewati)
       bg = "#10b981";
       border = "#10b981";
       color = "#ffffff";
       shadow = "0 0 0 4px rgba(16,185,129,0.2)";
     } else {
-      // Abu-abu (Belum tercapai)
       bg = "#2a2a2a";
       border = "rgba(255,255,255,0.1)";
       color = "var(--text-secondary)";
@@ -1382,17 +1261,14 @@ function renderBsjpDetailContent(
     `;
   }
 
-  // ===== PROGRESS BAR DINAMIS (MULTI-COLOR) =====
   let progressWidth = "0%";
-  let progressGradient = "linear-gradient(90deg, #10b981, #10b981)"; // Default Hijau
+  let progressGradient = "linear-gradient(90deg, #10b981, #10b981)";
 
   if (isStep3Active) {
     progressWidth = "100%";
     if (step3State === "warning") {
-      // Hard-stop gradient: Hijau 0% - 50%, lalu Orange 50% - 100%
       progressGradient = "linear-gradient(90deg, #10b981 50%, #f59e0b 50%)";
     } else {
-      // Full Hijau (jika sukses/jalan terus tanpa kena trailing)
       progressGradient = "linear-gradient(90deg, #10b981, #10b981)";
     }
   } else if (isStep2Active) {
@@ -1400,7 +1276,7 @@ function renderBsjpDetailContent(
     progressGradient = "linear-gradient(90deg, #10b981, #10b981)";
   } else if (isHardSL) {
     progressWidth = "10%";
-    progressGradient = "linear-gradient(90deg, #ef4444, #ef4444)"; // Merah
+    progressGradient = "linear-gradient(90deg, #ef4444, #ef4444)";
   }
 
   const strategyVisual = `
@@ -1431,7 +1307,6 @@ function renderBsjpDetailContent(
     </div>
   `;
 
-  // ===== 3. BREAK EVEN DISPLAY =====
   const breakEvenDisplay = `
     <div style="display:flex; align-items:center; gap:0.35rem; font-weight:600; color:${s.breakEven ? "#10b981" : "#f59e0b"};">
       <i class="fa-solid ${s.breakEven ? "fa-check-circle" : "fa-xmark-circle"}" style="font-size:0.95rem;"></i>
@@ -1439,20 +1314,18 @@ function renderBsjpDetailContent(
     </div>
   `;
 
-  // ===== 4. TRAILING / CLOSED DISPLAY =====
   let trailingDisplay = "";
   if (isClosed) {
     let exitLabel, exitIcon, exitColor;
 
-    // Logika Pintar untuk Label Exit
     if (isTP) {
       exitLabel = "Take Profit";
       exitIcon = "fa-check-circle";
       exitColor = "var(--success)";
     } else if (isTrailingHit) {
       exitLabel = "Trailing Hit (BEP)";
-      exitIcon = "fa-shield-halved"; // Ikon tameng untuk melambangkan profit dilindungi
-      exitColor = "#f59e0b"; // Warna Warning
+      exitIcon = "fa-shield-halved";
+      exitColor = "#f59e0b";
     } else {
       exitLabel = "Stop Loss";
       exitIcon = "fa-xmark-circle";
@@ -1484,7 +1357,6 @@ function renderBsjpDetailContent(
     `;
   }
 
-  // ===== HTML LENGKAP =====
   const html = `
     <div class="pro-detail-container">
       <button class="sig-back-btn" id="bsjpBackBtn">
@@ -1568,10 +1440,10 @@ function renderBsjpDetailContent(
   if (backBtn && onBack) backBtn.addEventListener("click", onBack);
 }
 
+// ========== RENDER SIGNAL DETAIL ==========
 async function renderSignalDetailToContainer(signal, container, onBack) {
   const s = signal;
 
-  // ===== BSJP SPECIAL DETAIL =====
   if (s.signalType === "BSJP") {
     renderBsjpDetail(s, container, onBack);
     return;
@@ -1856,7 +1728,7 @@ async function renderSignalDetailToContainer(signal, container, onBack) {
   });
 }
 
-// ========== RENDER PERFORMANCE SIGNAL LIST (DENGAN FALLBACK FETCH & EVENT LISTENER) ==========
+// ========== RENDER PERFORMANCE SIGNAL LIST ==========
 async function renderPerformanceSignalList(status) {
   const container = document.getElementById("signalListContainer");
   if (!container) return;
@@ -2331,7 +2203,6 @@ async function showSignalList() {
 
   let html = "";
 
-  // ========== FILTER TODAY ==========
   if (filterType === "today") {
     const session1 = filteredSignals.filter(
       (s) => getSessionFromDate(s.signalDate) === 1 && s.signalType !== "BSJP",
@@ -2345,7 +2216,6 @@ async function showSignalList() {
         getSessionFromDate(s.signalDate) === null && s.signalType !== "BSJP",
     );
 
-    // Header utama
     html += `
       <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
         <span style="font-weight:600; font-size:0.9rem; color:var(--text-primary);">
@@ -2358,37 +2228,30 @@ async function showSignalList() {
       </div>
     `;
 
-    // SESI 1
     if (session1.length) {
       html += `<div class="session-header">SESI 1</div>`;
       html += `<div class="sig-list">${renderSignalRows(session1, priceMap, infoMap)}</div>`;
     }
 
-    // SESI 2
     if (session2.length) {
       html += `<div class="session-header">SESI 2</div>`;
       html += `<div class="sig-list">${renderSignalRows(session2, priceMap, infoMap)}</div>`;
     }
 
-    // BSJP
     if (bsjpToday.length) {
       html += `<div class="session-header" style="color:var(--text-primary);">BSJP</div>`;
       html += `<div class="sig-list">${renderSignalRows(bsjpToday, priceMap, infoMap)}</div>`;
     }
 
-    // OTHER
     if (other.length) {
       html += `<div class="session-header">LAINNYA</div>`;
       html += `<div class="sig-list">${renderSignalRows(other, priceMap, infoMap)}</div>`;
     }
-
-    // ========== FILTER RUNNING ==========
   } else if (filterType === "running") {
     const runningBiasa = filteredSignals.filter((s) => s.signalType !== "BSJP");
     const runningBsjp = filteredSignals.filter((s) => s.signalType === "BSJP");
     const allRunning = [...runningBiasa, ...runningBsjp];
 
-    // Hitung gain gabungan untuk ALL RUNNING (termasuk BSJP)
     let totalGain = 0,
       totalCount = 0;
     allRunning.forEach((s) => {
@@ -2408,7 +2271,6 @@ async function showSignalList() {
         : "—";
     const totalGainColor = avgTotalGain >= 0 ? "#10b981" : "#ef4444";
 
-    // ALL RUNNING (header utama dengan gain total)
     if (allRunning.length) {
       html += `
         <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
@@ -2423,7 +2285,6 @@ async function showSignalList() {
         <div class="sig-list">${renderSignalRows(runningBiasa, priceMap, infoMap)}</div>
       `;
 
-      // Jika ada BSJP, tampilkan sebagai sub-section tanpa GAIN
       if (runningBsjp.length) {
         html += `
           <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem; color:var(--text-primary);">
@@ -2436,8 +2297,6 @@ async function showSignalList() {
         `;
       }
     }
-
-    // ========== FILTER ALL (tanpa filter) ==========
   } else {
     html += `
       <div class="sig-list-header" style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0.5rem;">
@@ -2456,7 +2315,6 @@ async function showSignalList() {
   container.innerHTML = html;
   signalListRendered = true;
 
-  // Event listener untuk klik row
   container.querySelectorAll(".sig-list-row").forEach((row) => {
     row.addEventListener("click", function (e) {
       const stock = this.dataset.stock;
@@ -2507,7 +2365,6 @@ async function showSignalDetail(index) {
 
   const container = document.getElementById("signals");
 
-  // ===== BSJP SPECIAL DETAIL =====
   if (s.signalType === "BSJP") {
     renderBsjpDetail(s, container, () => showSignalList());
     return;
@@ -2607,26 +2464,6 @@ async function showSignalDetail(index) {
     const info = await fetchStockInfo(s.stockCode);
     if (info) stockInfo = info;
   } catch (e) {}
-
-  function getColorFromCode(code) {
-    const colors = [
-      "#10b981",
-      "#3b82f6",
-      "#f59e0b",
-      "#ef4444",
-      "#8b5cf6",
-      "#ec4899",
-      "#14b8a6",
-      "#f97316",
-      "#6366f1",
-      "#06b6d4",
-    ];
-    let hash = 0;
-    for (let i = 0; i < code.length; i++) {
-      hash = code.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  }
 
   const logoUrl = `https://assets.stockbit.com/logos/companies/${s.stockCode}.png`;
   const parqetUrl = `https://assets.parqet.com/logos/symbol/${s.stockCode}.png`;
@@ -3030,7 +2867,6 @@ ${headerResetStyle}
 
   <div style="background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid rgba(255,255,255,0.08); overflow:hidden; margin-bottom:0.5rem;">
 
-    <!-- HEADER -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div style="display:grid; grid-template-columns: 1fr auto; gap:0.2rem 0.5rem; align-items:center;">
         <div style="grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:0.1rem;">
@@ -3050,7 +2886,6 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- SIGNAL TYPE + PRICE LADDER -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div style="display:flex; align-items:center; gap:1rem; padding-bottom:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05); margin-bottom:0.4rem;">
         <div style="width:48px; height:48px; border-radius:50%; background:${signalBorder}15; border:2px solid ${signalBorder}; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:${signalBorder};">
@@ -3090,12 +2925,10 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- CONFIDENCE -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       ${confVisual.replace(/<div class="pro-card" style="position:relative;">/, '<div style="position:relative;">')}
     </div>
 
-    <!-- BROKER + FOREIGN -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div class="pro-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
         <div>
@@ -3129,7 +2962,6 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- RSI + MACD -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div class="pro-grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
         <div>
@@ -3152,7 +2984,6 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- BETA -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div class="pro-grid-2">
         <div class="col-left">
@@ -3161,7 +2992,6 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- TEKNIKAL -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div class="pro-grid-2">
         <div class="col-right" style="width:100%;">
@@ -3179,7 +3009,6 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- CHART PATTERN -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       <div style="display:flex; align-items:center; gap:0.3rem; margin-bottom:0.3rem; font-weight:600; font-size:0.8rem; color:var(--text-secondary);">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Chart Pattern
@@ -3191,7 +3020,6 @@ ${headerResetStyle}
       </div>
     </div>
 
-    <!-- ANALYST OPINION -->
     <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
       ${
         s.analystOpinion
@@ -3207,7 +3035,6 @@ ${headerResetStyle}
       }
     </div>
 
-    <!-- BERITA TERKAIT -->
     ${
       s.relatedNews && s.relatedNews.length
         ? `
@@ -3235,6 +3062,7 @@ ${headerResetStyle}
   });
 }
 
+// ========== RENDER BROKER FLOW ==========
 function renderBrokerFlow(
   topBuyers,
   topSellers,
@@ -3502,38 +3330,20 @@ function renderDetailCharts(s, container = document) {
   }
 }
 
-// ========== FETCH DATA ==========
+// ========== FETCH DATA (REPORTS DI NONAKTIFKAN, PAKAI SIGNALS) ==========
 async function fetchReports() {
+  // Fungsi ini sekarang hanya sebagai wrapper untuk menjaga kompatibilitas polling
   const activeTab = document.querySelector(".view.active")?.id;
   if (activeTab === "daily") {
     if (dailyRendered) {
-      try {
-        const res = await fetch(`${apiBase}/reports`);
-        if (!res.ok) throw new Error("Gagal fetch reports");
-        const data = await res.json();
-        cachedReports = data.daily || [];
-        updateDailyContent(cachedReports);
-      } catch (err) {
-        console.warn("Update daily gagal:", err);
-      }
-      return;
+      await fetchSignals(false);
+      await updateDailyContent();
+    } else {
+      renderDaily();
     }
-    showLoading("daily");
-  }
-  try {
-    const res = await fetch(`${apiBase}/reports`);
-    if (!res.ok) throw new Error("Gagal fetch reports");
-    const data = await res.json();
-    const daily = data.daily || [];
-    cachedReports = daily;
-    if (activeTab === "daily" || activeTab === "home") {
-      renderDaily(daily);
-    }
-  } catch (err) {
-    console.error(err);
-    const errorHtml = `<div class="loading-state"><p style="color:var(--danger);">❌ Gagal memuat laporan</p><button onclick="fetchReports()" class="retry-btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:0.5rem 1rem;border-radius:8px;color:var(--text-primary);cursor:pointer;">Coba Lagi</button></div>`;
-    if (document.getElementById("daily")?.innerHTML.includes("Loading"))
-      document.getElementById("daily").innerHTML = errorHtml;
+  } else if (activeTab === "home") {
+    await fetchSignals(false);
+    updateChartsFromSignals({ running: _allRunning, closed: _allClosed });
   }
 }
 
@@ -3968,13 +3778,19 @@ function updateWinRateChart(data) {
   const ctx = document.getElementById("winRateChart");
   if (!ctx) return;
   if (winRateChart) winRateChart.destroy();
-  const closed = data.closed || [];
-  const wins = closed.filter((s) => (s.returnPercent || 0) > 0).length;
-  const losses = closed.filter((s) => (s.returnPercent || 0) <= 0).length;
-  const total = wins + losses;
-  let winRate = total > 0 ? (wins / total) * 100 : 0;
-  winRate = Math.round(winRate * 10) / 10;
 
+  const closed = data.closed || [];
+
+  // === HITUNG WIN RATE SAMA SEPERTI DI DAILY (berdasarkan status TP/SL) ===
+  const tpCount = closed.filter((s) => s.status === "TP").length;
+  const slCount = closed.filter(
+    (s) => s.status === "SL" || s.status === "STOP LOSS",
+  ).length;
+  const totalClosed = tpCount + slCount;
+  let winRate = totalClosed > 0 ? (tpCount / totalClosed) * 100 : 0;
+  winRate = Math.round(winRate * 10) / 10; // 1 desimal
+
+  // === METRIK TAMBAHAN (AVG R:R, PROFIT FACTOR) – TETAP PAKAI returnPercent ===
   let totalRisk = 0,
     totalReward = 0,
     grossProfit = 0,
@@ -3984,7 +3800,7 @@ function updateWinRateChart(data) {
     if (ret > 0) {
       grossProfit += ret;
       totalReward += ret;
-      totalRisk += ret * 0.5;
+      totalRisk += ret * 0.5; // asumsi risk 50% dari reward (atau bisa disesuaikan)
     } else {
       grossLoss += Math.abs(ret);
       totalRisk += Math.abs(ret);
@@ -3997,8 +3813,15 @@ function updateWinRateChart(data) {
       : grossProfit > 0
         ? "∞"
         : "-";
+
   document.getElementById("avgRR").innerText = `1:${avgRR}`;
   document.getElementById("profitFactor").innerText = profitFactor;
+
+  // === GAMBAR CHART DOUGHNUT ===
+  const win = winRate;
+  const loss = 100 - winRate;
+  const dataChart = totalClosed > 0 ? [win, loss] : [0, 100];
+  const colors = ["#10b981", "#ef4444"];
 
   winRateChart = new Chart(ctx, {
     type: "doughnut",
@@ -4006,8 +3829,8 @@ function updateWinRateChart(data) {
       labels: ["Win", "Loss"],
       datasets: [
         {
-          data: total > 0 ? [wins, losses] : [0, 100],
-          backgroundColor: ["#10b981", "#ef4444"],
+          data: dataChart,
+          backgroundColor: colors,
           borderColor: "transparent",
           cutout: "85%",
         },
@@ -4030,10 +3853,11 @@ function updateWinRateChart(data) {
           ctx.font = "bold 1.5rem 'Space Grotesk'";
           ctx.fillStyle = "#ffffff";
           ctx.textAlign = "center";
-          ctx.fillText(`${winRate}%`, left + width / 2, top + height / 2 - 10);
+          ctx.textBaseline = "middle";
+          ctx.fillText(`${winRate}%`, left + width / 2, top + height / 2 - 8);
           ctx.font = "0.7rem 'Space Grotesk'";
           ctx.fillStyle = "#71717a";
-          ctx.fillText("WIN RATE", left + width / 2, top + height / 2 + 20);
+          ctx.fillText("WIN RATE", left + width / 2, top + height / 2 + 22);
           ctx.restore();
         },
       },
