@@ -1243,159 +1243,182 @@ function renderBsjpDetailContent(
   currentPrice,
   stockInfo,
 ) {
-  // Hitung gain
+  // ===== 1. HITUNG GAIN SECARA DINAMIS & AKURAT =====
   let gainAbs = 0,
     gainPct = 0,
     gainStr = "",
     gainColor = "",
     arrowIcon = "";
-  let isRunning = s.status === "RUNNING" && s.entryPrice && currentPrice;
-  if (isRunning) {
+
+  const isRunningNow = s.status === "RUNNING";
+  const isClosed = s.status === "TP" || s.status === "SL";
+  const hasCurrentPrice = currentPrice != null;
+
+  // Kalkulasi Math untuk Gain
+  if (isRunningNow && s.entryPrice && hasCurrentPrice) {
     gainAbs = currentPrice - s.entryPrice;
     gainPct = (gainAbs / s.entryPrice) * 100;
+  } else if (isClosed && s.entryPrice && s.exitPrice) {
+    // Hitung dari Exit Price (Lebih akurat daripada s.returnPercent mentah)
+    gainAbs = s.exitPrice - s.entryPrice;
+    gainPct = (gainAbs / s.entryPrice) * 100;
+  } else if (isClosed && s.returnPercent != null) {
+    // Fallback jika tidak ada exitPrice
+    gainPct = s.returnPercent;
+    gainAbs = (s.returnPercent / 100) * s.entryPrice;
+  }
+
+  // Format Tampilan Teks Gain
+  if (isRunningNow && !hasCurrentPrice) {
+    gainStr = "—";
+    gainColor = "var(--text-secondary)";
+  } else {
     const absGain = Math.abs(gainAbs).toFixed(0);
     const absPct = Math.abs(gainPct).toFixed(2);
+
     if (Math.abs(gainAbs) < 0.01) {
       gainColor = "var(--text-secondary)";
       gainStr = "0 (0.00%)";
       arrowIcon = "";
     } else if (gainAbs > 0) {
+      gainColor = "#10b981"; // Hijau (Profit)
       arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
-      gainColor = "#10b981";
       gainStr = `${arrowIcon} ${absGain} (+${absPct}%)`;
     } else {
+      gainColor = "#ef4444"; // Merah (Loss)
       arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
-      gainColor = "#ef4444";
       gainStr = `${arrowIcon} ${absGain} (-${absPct}%)`;
-    }
-  } else if (s.status === "RUNNING" && !currentPrice) {
-    gainStr = "—";
-    gainColor = "var(--text-secondary)";
-  } else {
-    if (s.status === "TP" || s.status === "SL") {
-      const ret = s.returnPercent || 0;
-      const sign = ret >= 0 ? "+" : "";
-      gainStr = `${sign}${ret.toFixed(2)}%`;
-      gainColor = ret >= 0 ? "#10b981" : "#ef4444";
-      if (ret > 0.01)
-        arrowIcon = `<i class="fa-solid fa-arrow-trend-up" style="font-size:0.7rem; color:#10b981;"></i>`;
-      else if (ret < -0.01)
-        arrowIcon = `<i class="fa-solid fa-arrow-trend-down" style="font-size:0.7rem; color:#ef4444;"></i>`;
-    } else {
-      gainStr = "—";
-      gainColor = "var(--text-secondary)";
-      arrowIcon = "";
     }
   }
 
+  // Set Display Price & Arrow (Di atas logo)
   let displayPrice = "—",
     priceArrow = "";
-  if (s.status === "TP" && s.exitPrice) {
+
+  if (isClosed && s.exitPrice) {
     displayPrice = Number(s.exitPrice).toLocaleString("id-ID");
-    const ret = s.returnPercent || 0;
-    if (ret > 0)
-      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
-    else if (ret < 0)
-      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
-  } else if (s.status === "SL" && s.exitPrice) {
-    displayPrice = Number(s.exitPrice).toLocaleString("id-ID");
-    const ret = s.returnPercent || 0;
-    if (ret > 0)
-      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
-    else if (ret < 0)
-      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
-  } else if (currentPrice != null) {
+  } else if (isRunningNow && hasCurrentPrice) {
     displayPrice = Number(currentPrice).toLocaleString("id-ID");
-    if (gainAbs > 0)
-      priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
-    else if (gainAbs < 0)
-      priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+  }
+
+  if (gainAbs > 0) {
+    priceArrow = `<i class="fa-solid fa-arrow-up" style="color:#10b981; font-size:0.8rem; margin-right:0.2rem;"></i>`;
+  } else if (gainAbs < 0) {
+    priceArrow = `<i class="fa-solid fa-arrow-down" style="color:#ef4444; font-size:0.8rem; margin-right:0.2rem;"></i>`;
   }
 
   let statusStamp = "";
   if (s.status === "TP")
-    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${hitSvg}</span>`;
+    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${typeof hitSvg !== "undefined" ? hitSvg : "TP"}</span>`;
   else if (s.status === "SL" || s.status === "STOP LOSS")
-    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${missedSvg}</span>`;
+    statusStamp = `<span class="sig-status-stamp" style="width:36px; height:36px; display:inline-block; flex-shrink:0;">${typeof missedSvg !== "undefined" ? missedSvg : "SL"}</span>`;
 
   const logoUrl = `https://assets.stockbit.com/logos/companies/${s.stockCode}.png`;
   const parqetUrl = `https://assets.parqet.com/logos/symbol/${s.stockCode}.png`;
-  const bgColor = getColorFromCode(s.stockCode);
+  const bgColor =
+    typeof getColorFromCode === "function"
+      ? getColorFromCode(s.stockCode)
+      : "#3b82f6";
   const logoHtml = `<span class="detail-logo-text"><img src="${logoUrl}" alt="${s.stockCode}" style="width:50px; height:64px; object-fit:contain; border:none; background:transparent; display:block;" onerror="this.onerror=null; this.src='${parqetUrl}'; this.onerror=function(){ this.style.display='none'; this.nextElementSibling.style.display='inline-block'; }"><span style="display:none; width:64px; height:64px; line-height:64px; text-align:center; background:${bgColor}; color:#fff; font-size:1.1rem; font-weight:700; font-family:'JetBrains Mono',monospace;">${s.stockCode.substring(0, 2)}</span></span>`;
 
   const breakEvenStatus = s.breakEven ? "TP tercapai" : "Belum";
-  const isClosed = s.status === "TP" || s.status === "SL";
 
-  // ===== STATUS STEP (Dinamis) =====
-  const isRunningNow = s.status === "RUNNING";
+  // ===== 2. STATUS STEP (Logika Dinamis & Cerdas) =====
   const isTP = s.status === "TP";
-  const isSL = s.status === "SL";
+  const isHardSL = s.status === "SL" && !s.breakEven; // Kena SL sebelum BEP (Rugi)
+  const isTrailingHit = s.status === "SL" && s.breakEven; // Kena SL setelah BEP (Aman/Profit)
 
-  // Step 1 (Entry) hijau jika masih RUNNING atau sudah TP (selalu hijau jika entry terjadi)
-  const isStep1Active = isRunningNow || isTP || isSL; // tetap aktif meskipun SL? tapi kalau SL tanpa BE, user minta abu-abu. Jadi kita perlu cek.
-  // Untuk SL tanpa breakEven, step1 tidak aktif.
-  const isStep1ActiveFinal =
-    isRunningNow || isTP || (isSL && s.breakEven === true);
-  // Step 2 (Break Even) aktif jika breakEven true
+  // Evaluasi State tiap Step
+  const isStep1Active = true;
+  const step1State = isHardSL ? "failed" : "default";
+
   const isStep2Active = s.breakEven === true;
-  // Step 3 (Trailing Stop) aktif jika breakEven true dan (masih running atau TP)
-  const isStep3Active = s.breakEven === true && (isRunningNow || isTP);
-  // Step 3 gagal (merah) jika SL dan breakEven true (trailing stop kena)
-  const isStep3Failed = s.status === "SL" && s.breakEven === true;
 
-  // ===== STEP ICON & COLOR =====
-  function stepCircle(active, label, desc, icon, failed = false) {
+  const isStep3Active = s.breakEven === true;
+  const step3State = isTrailingHit ? "warning" : "default"; // Warning (Amber) untuk perlindungan profit
+
+  // Modifikasi stepCircle agar mendukung state "warning"
+  function stepCircle(active, label, desc, icon, state = "default") {
     let bg, border, color, shadow;
-    if (failed) {
+    if (state === "failed") {
+      // Merah (Loss)
       bg = "#ef4444";
       border = "#ef4444";
       color = "#ffffff";
       shadow = "0 0 0 4px rgba(239,68,68,0.2)";
+    } else if (state === "warning") {
+      // Orange/Amber (BEP / Trailing Hit)
+      bg = "#f59e0b";
+      border = "#f59e0b";
+      color = "#ffffff";
+      shadow = "0 0 0 4px rgba(245,158,11,0.2)";
     } else if (active) {
+      // Hijau (Berhasil dilewati)
       bg = "#10b981";
       border = "#10b981";
       color = "#ffffff";
       shadow = "0 0 0 4px rgba(16,185,129,0.2)";
     } else {
+      // Abu-abu (Belum tercapai)
       bg = "#2a2a2a";
       border = "rgba(255,255,255,0.1)";
       color = "var(--text-secondary)";
       shadow = "0 0 0 4px #121212";
     }
+
+    let descColor = "var(--text-secondary)";
+    if (state === "failed") descColor = "#ef4444";
+    else if (state === "warning") descColor = "#f59e0b";
+    else if (active) descColor = "#10b981";
+
     return `
       <div style="flex:1; text-align:center; z-index:2; position:relative;">
         <div style="width:34px; height:34px; background:${bg}; border:2px solid ${border}; color:${color}; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto; font-size:0.8rem; font-weight:700; box-shadow: ${shadow}; transition:all 0.3s ease;">
           ${icon}
         </div>
-        <div style="font-size:0.7rem; font-weight:600; color:${active || failed ? "var(--text-primary)" : "var(--text-secondary)"}; margin-top:0.4rem;">${label}</div>
-        <div style="font-size:0.5rem; color:${failed ? "#ef4444" : active ? "#10b981" : "var(--text-secondary)"}; margin-top:0.1rem; opacity:0.8;">${desc}</div>
+        <div style="font-size:0.7rem; font-weight:600; color:${active || state !== "default" ? "var(--text-primary)" : "var(--text-secondary)"}; margin-top:0.4rem;">${label}</div>
+        <div style="font-size:0.5rem; color:${descColor}; margin-top:0.1rem; opacity:0.8;">${desc}</div>
       </div>
     `;
   }
 
-  // ===== PROGRESS BAR =====
+  // ===== PROGRESS BAR DINAMIS (MULTI-COLOR) =====
   let progressWidth = "0%";
-  if (isStep3Active || isStep3Failed) progressWidth = "100%";
-  else if (isStep2Active) progressWidth = "50%";
-  else progressWidth = "0%";
+  let progressGradient = "linear-gradient(90deg, #10b981, #10b981)"; // Default Hijau
 
-  // ===== STRATEGY VISUAL =====
+  if (isStep3Active) {
+    progressWidth = "100%";
+    if (step3State === "warning") {
+      // Hard-stop gradient: Hijau 0% - 50%, lalu Orange 50% - 100%
+      progressGradient = "linear-gradient(90deg, #10b981 50%, #f59e0b 50%)";
+    } else {
+      // Full Hijau (jika sukses/jalan terus tanpa kena trailing)
+      progressGradient = "linear-gradient(90deg, #10b981, #10b981)";
+    }
+  } else if (isStep2Active) {
+    progressWidth = "50%";
+    progressGradient = "linear-gradient(90deg, #10b981, #10b981)";
+  } else if (isHardSL) {
+    progressWidth = "10%";
+    progressGradient = "linear-gradient(90deg, #ef4444, #ef4444)"; // Merah
+  }
+
   const strategyVisual = `
     <div style="display:flex; align-items:center; justify-content:space-between; margin:0.8rem 0; position:relative; padding:0 0.5rem;">
       <div style="position:absolute; top:17px; left:10%; right:10%; height:2px; background:rgba(255,255,255,0.08); z-index:1;">
-        <div style="height:100%; width:${progressWidth}; background:linear-gradient(90deg, ${isStep3Failed ? "#ef4444" : "#10b981"}, ${isStep3Failed ? "#ef4444" : "#10b981"}); border-radius:2px; transition:width 0.8s ease;"></div>
+        <div style="height:100%; width:${progressWidth}; background:${progressGradient}; border-radius:2px; transition:width 0.8s ease;"></div>
       </div>
       
-      ${stepCircle(isStep1ActiveFinal, "Entry", "SL -2%", "1")}
+      ${stepCircle(isStep1Active, "Entry", "SL -2%", "1", step1State)}
       ${stepCircle(isStep2Active, "Break Even", "TP 2% → BE", "2")}
-      ${stepCircle(isStep3Active || isStep3Failed, "Trailing Stop", isStep3Failed ? "Stop Loss" : "Lock Profit 1%", "3", isStep3Failed)}
+      ${stepCircle(isStep3Active, "Trailing Stop", isTrailingHit ? "BEP/Profit Terkunci" : "Lock Profit 1%", "3", step3State)}
     </div>
     <div style="display:flex; justify-content:center; gap:0.5rem; font-size:0.55rem; color:var(--text-secondary); margin-top:0.2rem;">
       <span style="display:flex; align-items:center; gap:0.2rem;">
         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Active
       </span>
       <span style="display:flex; align-items:center; gap:0.2rem;">
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#2a2a2a; border:1px solid rgba(255,255,255,0.1);"></span> Inactive
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span> Trailing Hit
       </span>
       <span style="display:flex; align-items:center; gap:0.2rem;">
         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span> Stop Loss
@@ -1408,7 +1431,7 @@ function renderBsjpDetailContent(
     </div>
   `;
 
-  // ===== BREAK EVEN =====
+  // ===== 3. BREAK EVEN DISPLAY =====
   const breakEvenDisplay = `
     <div style="display:flex; align-items:center; gap:0.35rem; font-weight:600; color:${s.breakEven ? "#10b981" : "#f59e0b"};">
       <i class="fa-solid ${s.breakEven ? "fa-check-circle" : "fa-xmark-circle"}" style="font-size:0.95rem;"></i>
@@ -1416,12 +1439,26 @@ function renderBsjpDetailContent(
     </div>
   `;
 
-  // ===== TRAILING / CLOSED =====
+  // ===== 4. TRAILING / CLOSED DISPLAY =====
   let trailingDisplay = "";
   if (isClosed) {
-    const exitLabel = s.status === "TP" ? "Trade Closed" : "Stop Loss Hit";
-    const exitIcon = s.status === "TP" ? "fa-check-circle" : "fa-xmark-circle";
-    const exitColor = s.status === "TP" ? "var(--success)" : "var(--danger)";
+    let exitLabel, exitIcon, exitColor;
+
+    // Logika Pintar untuk Label Exit
+    if (isTP) {
+      exitLabel = "Take Profit";
+      exitIcon = "fa-check-circle";
+      exitColor = "var(--success)";
+    } else if (isTrailingHit) {
+      exitLabel = "Trailing Hit (BEP)";
+      exitIcon = "fa-shield-halved"; // Ikon tameng untuk melambangkan profit dilindungi
+      exitColor = "#f59e0b"; // Warna Warning
+    } else {
+      exitLabel = "Stop Loss";
+      exitIcon = "fa-xmark-circle";
+      exitColor = "var(--danger)";
+    }
+
     trailingDisplay = `
       <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
         <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-flag-checkered" style="margin-right:0.2rem;"></i>${exitLabel}</div>
@@ -1434,7 +1471,7 @@ function renderBsjpDetailContent(
   } else if (s.breakEven) {
     trailingDisplay = `
       <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
-        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-chart-line" style="margin-right:0.2rem;"></i>Trailing Stop</div>
+        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-chart-line" style="margin-right:0.2rem;"></i>Trailing Stop Aktif</div>
         <div style="font-weight:600; color:var(--success); font-size:0.85rem;">${fmtPrice(s.sl)}</div>
       </div>
     `;
@@ -1455,7 +1492,6 @@ function renderBsjpDetailContent(
       </button>
       <div style="background:rgba(255,255,255,0.02); border-radius:10px; border:1px solid rgba(255,255,255,0.08); overflow:hidden; margin-bottom:0.5rem;">
 
-        <!-- HEADER -->
         <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
           <div style="display:grid; grid-template-columns: 1fr auto; gap:0.2rem 0.5rem; align-items:center;">
             <div style="grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:0.1rem;">
@@ -1473,11 +1509,10 @@ function renderBsjpDetailContent(
             <div style="grid-column:1 / 3; grid-row:3; margin-top:0.1rem;">
               <span class="emit-tag"><i class="fa-solid fa-chart-simple" style="margin-right:3px; font-size:0.65rem;"></i>BSJP</span>
             </div>
-            <div style="grid-column:1 / 3; grid-row:4; font-size:0.7rem; color:var(--text-secondary); opacity:0.6; margin-top:0.1rem;">${s.signalDate ? formatFullDateTime(s.signalDate) : ""}</div>
+            <div style="grid-column:1 / 3; grid-row:4; font-size:0.7rem; color:var(--text-secondary); opacity:0.6; margin-top:0.1rem;">${s.signalDate ? (typeof formatFullDateTime === "function" ? formatFullDateTime(s.signalDate) : s.signalDate) : ""}</div>
           </div>
         </div>
 
-        <!-- PRICE LADDER -->
         <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
           <div class="price-ladder" style="display:flex; justify-content:space-around; align-items:center; gap:0.5rem; padding:0.2rem 0; margin:0;">
             <div class="price-item" style="display:flex; align-items:center; gap:0.3rem; flex:1; justify-content:center;">
@@ -1504,7 +1539,6 @@ function renderBsjpDetailContent(
           </div>
         </div>
 
-        <!-- STRATEGI FLOW DINAMIS -->
         <div style="padding:0.5rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);">
           <div style="background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:0.65rem 0.75rem;">
             <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.1rem;">
@@ -1516,7 +1550,6 @@ function renderBsjpDetailContent(
           </div>
         </div>
 
-        <!-- BREAK EVEN & TRAILING -->
         <div style="padding:0.5rem 0.75rem;">
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; font-size:0.7rem;">
             <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
@@ -2031,8 +2064,12 @@ function renderSignalRows(signals, priceMap, infoMap) {
     let statusBadge = "";
     if (s.status === "TP") {
       const exitPrice = s.exitPrice || s.tp1;
+      const entryPrice = s.entryPrice;
+      const ret =
+        entryPrice && exitPrice
+          ? ((exitPrice - entryPrice) / entryPrice) * 100
+          : 0;
       const priceVal = exitPrice != null ? fmtPriceNoRp(exitPrice) : "—";
-      const ret = s.returnPercent || 0;
       const sign = ret >= 0 ? "+" : "";
       gainStr = `${sign}${ret.toFixed(2)}%`;
       gainColor = ret >= 0 ? "#10b981" : "#ef4444";
@@ -2048,8 +2085,12 @@ function renderSignalRows(signals, priceMap, infoMap) {
       statusBadge = `<span class="sig-status-stamp">${hitSvg}</span>`;
     } else if (s.status === "SL" || s.status === "STOP LOSS") {
       const exitPrice = s.exitPrice || s.sl;
+      const entryPrice = s.entryPrice;
+      const ret =
+        entryPrice && exitPrice
+          ? ((exitPrice - entryPrice) / entryPrice) * 100
+          : 0;
       const priceVal = exitPrice != null ? fmtPriceNoRp(exitPrice) : "—";
-      const ret = s.returnPercent || 0;
       const sign = ret >= 0 ? "+" : "";
       gainStr = `${sign}${ret.toFixed(2)}%`;
       gainColor = ret >= 0 ? "#10b981" : "#ef4444";
