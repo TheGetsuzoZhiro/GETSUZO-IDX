@@ -125,56 +125,95 @@ function escapeHtml(str) {
   );
 }
 
-// ========== HELPER TAGS ==========
 function buildTagItems(s) {
   const items = [];
-  if (s.patternChart) {
-    const pc = s.patternChart.toLowerCase();
-    if (pc.includes("breakout")) {
-      items.push({ label: "Breakout", icon: "fa-arrow-right-to-bracket" });
-    } else if (pc.includes("consolidation")) {
-      items.push({ label: "Consolidation", icon: "fa-arrows-left-right" });
-    } else if (pc.includes("reversal")) {
-      items.push({ label: "Reversal", icon: "fa-rotate-right" });
-    } else if (pc.includes("trend")) {
-      items.push({ label: "Trend", icon: "fa-chart-line" });
+  const chart = (s.patternChart || "").toLowerCase();
+  const candle = (s.patternCandle || "").toLowerCase();
+  const signalType = (s.signalType || "").toUpperCase();
+  const isBuy = signalType.includes("BUY");
+  const isSell = signalType.includes("SELL");
+
+  // === 1. DETEKSI POLA CHART UTAMA ===
+  if (chart.includes("breakout")) {
+    items.push({ label: "Breakout", icon: "fa-arrow-right-to-bracket" });
+  } else if (chart.includes("pullback")) {
+    items.push({ label: "Pullback", icon: "fa-arrow-turn-down" });
+  } else if (chart.includes("consolidation") || chart.includes("base")) {
+    items.push({ label: "Consolidation", icon: "fa-arrows-left-right" });
+  } else if (chart.includes("reversal")) {
+    items.push({ label: "Reversal", icon: "fa-rotate-right" });
+  } else if (chart.includes("trend")) {
+    items.push({ label: "Trend", icon: "fa-chart-line" });
+  }
+
+  // === 2. DETEKSI SUPPORT / RESISTANCE ===
+  if (chart.includes("support") || candle.includes("support")) {
+    items.push({ label: "Support Test", icon: "fa-hand" });
+  }
+  if (chart.includes("resistance") || candle.includes("resistance")) {
+    items.push({ label: "Resistance Test", icon: "fa-hand" });
+  }
+
+  // === 3. CANDLE PATTERN (HANYA JIKA NAMANYA SPESIFIK) ===
+  const candlePatterns = [
+    { keywords: ["doji"], label: "Doji", icon: "fa-circle" },
+    { keywords: ["harami"], label: "Harami", icon: "fa-circle-half-stroke" },
+    { keywords: ["engulfing"], label: "Engulfing", icon: "fa-arrow-trend-up" },
+    { keywords: ["hammer"], label: "Hammer", icon: "fa-gavel" },
+    { keywords: ["shooting star"], label: "Shooting Star", icon: "fa-star" },
+    { keywords: ["marubozu"], label: "Marubozu", icon: "fa-square" },
+    { keywords: ["spinning top"], label: "Spinning Top", icon: "fa-circle" },
+    { keywords: ["inside bar"], label: "Inside Bar", icon: "fa-square" },
+  ];
+
+  for (const pattern of candlePatterns) {
+    if (pattern.keywords.some((kw) => candle.includes(kw))) {
+      items.push({ label: pattern.label, icon: pattern.icon });
+      break; // ambil satu pola candle saja
     }
   }
-  if (s.rsi != null) {
-    if (s.rsi < 30) {
-      items.push({ label: "Oversold", icon: "fa-arrow-down-wide-short" });
-    } else if (s.rsi > 70) {
-      items.push({ label: "Overbought", icon: "fa-arrow-up-wide-short" });
+
+  // === 4. TAMBAHKAN ARAH (UPTREND / DOWNTREND) HANYA JIKA KONTEKS MENDUKUNG ===
+  // Jika chart pattern jelas "pullback" atau "support", jangan tambahkan bearish/bullish
+  const hasChartDirection =
+    chart.includes("uptrend") || chart.includes("downtrend");
+  const hasCandleDirection =
+    candle.includes("bullish") || candle.includes("bearish");
+
+  if (hasChartDirection) {
+    if (chart.includes("uptrend")) {
+      items.push({ label: "Uptrend", icon: "fa-arrow-trend-up" });
+    } else if (chart.includes("downtrend")) {
+      items.push({ label: "Downtrend", icon: "fa-arrow-trend-down" });
+    }
+  } else if (
+    hasCandleDirection &&
+    !items.some((i) => i.label === "Pullback" || i.label === "Support Test")
+  ) {
+    // Hanya tampilkan bullish/bearish jika tidak ada pola chart yang lebih dominan
+    if (candle.includes("bullish")) {
+      items.push({ label: "Bullish Candle", icon: "fa-arrow-trend-up" });
+    } else if (candle.includes("bearish")) {
+      items.push({ label: "Bearish Candle", icon: "fa-arrow-trend-down" });
     }
   }
-  if (s.smartMoneyNet && Math.abs(s.smartMoneyNet) > 100) {
-    items.push({
-      label: s.smartMoneyNet > 0 ? "Smart Buy" : "Smart Sell",
-      icon: "fa-robot",
-    });
-  }
-  if (s.foreignNet && Math.abs(s.foreignNet) > 100) {
-    items.push({
-      label: s.foreignNet > 0 ? "Foreign Buy" : "Foreign Sell",
-      icon: "fa-globe",
-    });
-  }
-  if (s.patternCandle) {
-    const pc = s.patternCandle.toLowerCase();
-    if (pc.includes("bullish")) {
-      items.push({ label: "Bullish", icon: "fa-arrow-trend-up" });
-    } else if (pc.includes("bearish")) {
-      items.push({ label: "Bearish", icon: "fa-arrow-trend-down" });
-    } else if (pc.includes("gap up")) {
-      items.push({ label: "Gap Up", icon: "fa-arrow-up-from-bracket" });
-    } else if (pc.includes("gap down")) {
-      items.push({ label: "Gap Down", icon: "fa-arrow-down-from-bracket" });
-    }
-  }
+
+  // === 5. FALLBACK ===
   if (items.length === 0) {
-    items.push({ label: "Sector", icon: "fa-building" });
+    items.push({ label: "Monitor", icon: "fa-eye" });
   }
-  return items;
+
+  // Hindari duplikat label yang sama
+  const unique = [];
+  const seen = new Set();
+  for (const item of items) {
+    if (!seen.has(item.label)) {
+      seen.add(item.label);
+      unique.push(item);
+    }
+  }
+
+  return unique;
 }
 
 function renderTagHtml(s, inline = false) {
