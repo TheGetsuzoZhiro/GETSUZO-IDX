@@ -3,10 +3,21 @@ const moment = require("moment-timezone");
 const express = require("express");
 const path = require("path");
 const os = require("os");
+const webpush = require("web-push");
 const mongoose = require("mongoose");
 
 // ============ KONFIGURASI ZONA WAKTU ============
 moment.tz.setDefault("Asia/Jakarta");
+
+let pushSubscriptions = [];
+const vapidPublicKey =
+  "BCGyIOUseFBON2YXTAk-rcvncZ65jkbKqb2ShjOuvZhP08HLvaJJis5Bsx8ybuVVcZbXZow5GRrl9ykSiV0Y3B0";
+const vapidPrivateKey = "7PHNRENDWCkDl7JwoVYayqJDBkvSbzwZ2vxz1Cx7bSI";
+webpush.setVapidDetails(
+  "mailto:radityayoga187@gmail.com",
+  vapidPublicKey,
+  vapidPrivateKey,
+);
 
 // ============ KONEKSI MONGODB ============
 const MONGO_URI =
@@ -312,6 +323,50 @@ app.get("/api/market-status", async (req, res) => {
     statusText: statusText,
     statusClass: statusClass,
     holidayName: currentHolidayName,
+  });
+});
+
+app.post("/api/save-subscription", express.json(), (req, res) => {
+  const subscription = req.body;
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: "Invalid subscription" });
+  }
+
+  // Cegah duplikat
+  const exists = pushSubscriptions.some(
+    (sub) => sub.endpoint === subscription.endpoint,
+  );
+  if (!exists) {
+    pushSubscriptions.push(subscription);
+    console.log(`✅ Subscription saved. Total: ${pushSubscriptions.length}`);
+  }
+
+  res.json({ success: true });
+});
+
+app.post("/api/send-push", express.json(), (req, res) => {
+  const { title, body } = req.body;
+
+  if (!title || !body) {
+    return res.status(400).json({ error: "Title and body required" });
+  }
+
+  const payload = JSON.stringify({ title, body });
+
+  const promises = pushSubscriptions.map((subscription) =>
+    webpush.sendNotification(subscription, payload).catch((err) => {
+      console.error("❌ Gagal kirim ke", subscription.endpoint, err.message);
+      // Jika subscription expired, hapus dari daftar
+      if (err.statusCode === 410) {
+        pushSubscriptions = pushSubscriptions.filter(
+          (sub) => sub.endpoint !== subscription.endpoint,
+        );
+      }
+    }),
+  );
+
+  Promise.all(promises).then(() => {
+    res.json({ success: true, sent: pushSubscriptions.length });
   });
 });
 
