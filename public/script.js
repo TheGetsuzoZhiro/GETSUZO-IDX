@@ -4293,11 +4293,10 @@ document.addEventListener("DOMContentLoaded", () => {
         alert(
           "✅ Notifikasi push aktif! Anda akan menerima notifikasi di latar belakang.",
         );
-        // Update UI tanpa menghapus ikon
         pushBtn.style.borderColor = "#10b981";
         pushBtn.style.borderWidth = "2px";
         pushBtn.style.borderStyle = "solid";
-        pushBtn.style.borderRadius = "50%";
+        pushBtn.style.borderRadius = "4px";
         pushBtn.title = "Notifikasi Aktif";
       } else {
         alert(
