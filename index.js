@@ -6,67 +6,79 @@ const os = require("os");
 const mongoose = require("mongoose");
 
 // ============ KONFIGURASI ZONA WAKTU ============
-moment.tz.setDefault('Asia/Jakarta');
+moment.tz.setDefault("Asia/Jakarta");
 
 // ============ KONEKSI MONGODB ============
-const MONGO_URI = "mongodb+srv://zhironihboss_db_user:tzPCYPLUNw0fWrTz@cluster0.bfs8tiy.mongodb.net/getsuzo_db?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI =
+  "mongodb+srv://zhironihboss_db_user:tzPCYPLUNw0fWrTz@cluster0.bfs8tiy.mongodb.net/getsuzo_db?retryWrites=true&w=majority&appName=Cluster0";
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("✅ Berhasil terhubung ke MongoDB Atlas (Read-Only Mode)!"))
+mongoose
+  .connect(MONGO_URI)
+  .then(() =>
+    console.log("✅ Berhasil terhubung ke MongoDB Atlas (Read-Only Mode)!"),
+  )
   .catch((err) => console.error("❌ Gagal koneksi ke MongoDB:", err.message));
 
 // ============ MONGOOSE SCHEMAS & MODELS ============
-const SignalSchema = new mongoose.Schema({
-  stockCode: String,
-  signalType: String,
-  confidenceScore: Number,
-  confidenceDetails: [String],
-  entryPrice: Number,
-  tp1: Number,
-  sl: Number,
-  slModerat: Number,
-  slKonservatif: Number,
-  macd: Number,
-  macdSignal: Number,
-  rsi: Number,
-  ema20: Number,
-  ema50: Number,
-  vwap: Number,
-  adx: Number,
-  bbLow: Number,
-  bbHigh: Number,
-  atr: Number,
-  patternChart: String,
-  patternCandle: String,
-  sinyalBandar: String,
-  smartMoneyNet: Number,
-  foreignNet: Number,
-  foreignPartisipasi: Number,
-  beta: Number,
-  volatilitas: Number,
-  topBuyers: [{ code: String, lot: Number }],
-  topSellers: [{ code: String, lot: Number }],
-  analystOpinion: String,
-  relatedNews: [String],
-  status: String,
-  signalDate: String,
-  closeDate: String,
-  exitPrice: Number,
-  returnPercent: Number,
-  holdingDays: Number,
-  currentHigh: Number,
-  currentLow: Number
-}, { versionKey: false });
+const SignalSchema = new mongoose.Schema(
+  {
+    stockCode: String,
+    signalType: String,
+    confidenceScore: Number,
+    confidenceDetails: [String],
+    entryPrice: Number,
+    tp1: Number,
+    sl: Number,
+    slModerat: Number,
+    slKonservatif: Number,
+    macd: Number,
+    macdSignal: Number,
+    rsi: Number,
+    ema20: Number,
+    ema50: Number,
+    vwap: Number,
+    adx: Number,
+    bbLow: Number,
+    bbHigh: Number,
+    atr: Number,
+    patternChart: String,
+    patternCandle: String,
+    sinyalBandar: String,
+    smartMoneyNet: Number,
+    foreignNet: Number,
+    foreignPartisipasi: Number,
+    beta: Number,
+    volatilitas: Number,
+    topBuyers: [{ code: String, lot: Number }],
+    topSellers: [{ code: String, lot: Number }],
+    analystOpinion: String,
+    relatedNews: [String],
+    status: String,
+    signalDate: String,
+    closeDate: String,
+    exitPrice: Number,
+    returnPercent: Number,
+    holdingDays: Number,
+    currentHigh: Number,
+    currentLow: Number,
+  },
+  { versionKey: false },
+);
 
-const ReportSchema = new mongoose.Schema({
-  type: { type: String, default: "daily" },
-  daily: [{
-    id: Number,
-    date: String,
-    title: String,
-    content: String
-  }]
-}, { versionKey: false });
+const ReportSchema = new mongoose.Schema(
+  {
+    type: { type: String, default: "daily" },
+    daily: [
+      {
+        id: Number,
+        date: String,
+        title: String,
+        content: String,
+      },
+    ],
+  },
+  { versionKey: false },
+);
 
 const SignalModel = mongoose.model("Signal", SignalSchema, "signals");
 const ReportModel = mongoose.model("Report", ReportSchema, "reports");
@@ -100,8 +112,8 @@ async function fetchYahooData(symbol) {
     if (!meta) throw new Error("Meta tidak ditemukan");
 
     const regularMarketTime = meta.regularMarketTime;
-    const dateObj = moment.unix(regularMarketTime).tz('Asia/Jakarta');
-    const dateStr = dateObj.format('YYYY-MM-DD');
+    const dateObj = moment.unix(regularMarketTime).tz("Asia/Jakarta");
+    const dateStr = dateObj.format("YYYY-MM-DD");
 
     const result = {
       price: meta.regularMarketPrice,
@@ -119,18 +131,18 @@ const liburCache = { date: null, isLibur: false };
 let currentHolidayName = null;
 
 async function isTradingDay() {
-  const now = moment().tz('Asia/Jakarta');
+  const now = moment().tz("Asia/Jakarta");
   const today = now.format("YYYY-MM-DD");
   const dayOfWeek = now.day();
 
   if (dayOfWeek === 0 || dayOfWeek === 6) {
-    currentHolidayName = 'Akhir Pekan';
+    currentHolidayName = "Akhir Pekan";
     return false;
   }
 
   if (liburCache.date === today) {
     if (liburCache.isLibur) {
-      currentHolidayName = liburCache.holidayName || 'Libur Nasional';
+      currentHolidayName = liburCache.holidayName || "Libur Nasional";
     } else {
       currentHolidayName = null;
     }
@@ -138,7 +150,7 @@ async function isTradingDay() {
   }
 
   try {
-    const response = await axios.get('https://api-hari-libur.vercel.app/api', {
+    const response = await axios.get("https://api-hari-libur.vercel.app/api", {
       timeout: 5000,
     });
     if (response.data && response.data.data) {
@@ -146,13 +158,13 @@ async function isTradingDay() {
       if (holiday) {
         liburCache.date = today;
         liburCache.isLibur = true;
-        liburCache.holidayName = holiday.description || 'Libur Nasional';
+        liburCache.holidayName = holiday.description || "Libur Nasional";
         currentHolidayName = liburCache.holidayName;
         return false;
       }
     }
   } catch (err) {
-    console.error('Gagal cek libur, asumsikan hari trading:', err.message);
+    console.error("Gagal cek libur, asumsikan hari trading:", err.message);
   }
 
   liburCache.date = today;
@@ -165,26 +177,35 @@ async function isTradingDay() {
 async function isMarketOpen() {
   if (!(await isTradingDay())) return false;
 
-  const now = moment().tz('Asia/Jakarta');
+  const now = moment().tz("Asia/Jakarta");
   const hour = now.hour();
   const minute = now.minute();
   const dayOfWeek = now.day();
   const isFriday = dayOfWeek === 5;
 
   if (isFriday) {
-    const session1 = (hour > 9 || (hour === 9 && minute >= 0)) && (hour < 11 || (hour === 11 && minute <= 30));
-    const session2 = (hour > 14 || (hour === 14 && minute >= 0)) && (hour < 15 || (hour === 15 && minute <= 49));
+    const session1 =
+      (hour > 9 || (hour === 9 && minute >= 0)) &&
+      (hour < 11 || (hour === 11 && minute <= 30));
+    const session2 =
+      (hour > 14 || (hour === 14 && minute >= 0)) &&
+      (hour < 15 || (hour === 15 && minute <= 49));
     return session1 || session2;
   } else {
-    const session1 = (hour > 9 || (hour === 9 && minute >= 0)) && (hour < 12 || (hour === 12 && minute <= 0));
-    const session2 = (hour > 13 || (hour === 13 && minute >= 30)) && (hour < 15 || (hour === 15 && minute <= 49));
+    const session1 =
+      (hour > 9 || (hour === 9 && minute >= 0)) &&
+      (hour < 12 || (hour === 12 && minute <= 0));
+    const session2 =
+      (hour > 13 || (hour === 13 && minute >= 30)) &&
+      (hour < 15 || (hour === 15 && minute <= 49));
     return session1 || session2;
   }
 }
 
 // ============ EXPRESS WEB SERVER (READ-ONLY INTERFACE) ============
 const app = express();
-const PORT = process.env.PORT || process.env.SERVER_PORT || process.env.APP_PORT || 3000;
+const PORT =
+  process.env.PORT || process.env.SERVER_PORT || process.env.APP_PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -212,7 +233,10 @@ app.get("/api/price/:symbol", async (req, res) => {
     }
     const data = await fetchYahooData(symbol);
     if (data) {
-      priceCacheBackend.set(symbol, { price: data.price, timestamp: Date.now() });
+      priceCacheBackend.set(symbol, {
+        price: data.price,
+        timestamp: Date.now(),
+      });
       res.json({ symbol, price: data.price });
     } else {
       res.status(404).json({ error: "Price not found" });
@@ -245,16 +269,21 @@ app.get("/api/stock-info/:symbol", async (req, res) => {
     infoCache.set(symbol, { data: result, timestamp: Date.now() });
     res.json(result);
   } catch (error) {
-    res.json({ symbol, longName: symbol, logoUrl: `https://assets.parqet.com/logos/symbol/${symbol}.png` });
+    res.json({
+      symbol,
+      longName: symbol,
+      logoUrl: `https://assets.parqet.com/logos/symbol/${symbol}.png`,
+    });
   }
 });
 
-// Route 4: Mengambil Data Sinyal (Running & Closed) dari Mongo (Read-Only)
 app.get("/api/signals", async (req, res) => {
   try {
     const allSignals = await SignalModel.find({});
     const running = allSignals.filter((s) => s.status === "RUNNING");
-    const closed = allSignals.filter((s) => s.status !== "RUNNING").slice(-20);
+
+    const closed = allSignals.filter((s) => s.status !== "RUNNING");
+
     res.json({ running, closed });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -266,42 +295,48 @@ app.get("/api/market-status", async (req, res) => {
   const open = await isMarketOpen();
   const now = moment().tz("Asia/Jakarta");
   const dayOfWeek = now.day();
-  let statusText = '';
-  let statusClass = '';
+  let statusText = "";
+  let statusClass = "";
 
   if (open) {
-    statusText = 'Market Open';
-    statusClass = 'open';
+    statusText = "Market Open";
+    statusClass = "open";
   } else {
     const tradingDay = await isTradingDay();
     if (!tradingDay) {
-      statusText = `Libur: ${currentHolidayName || 'Nasional'}`;
-      statusClass = 'holiday';
+      statusText = `Libur: ${currentHolidayName || "Nasional"}`;
+      statusClass = "holiday";
     } else {
       const hour = now.hour();
       const minute = now.minute();
       if (dayOfWeek === 5) {
         if (hour < 9 || (hour === 9 && minute < 0)) {
-          statusText = 'Pra Buka';
-        } else if ((hour > 11 || (hour === 11 && minute > 30)) && (hour < 14 || (hour === 14 && minute < 0))) {
-          statusText = 'Istirahat';
+          statusText = "Pra Buka";
+        } else if (
+          (hour > 11 || (hour === 11 && minute > 30)) &&
+          (hour < 14 || (hour === 14 && minute < 0))
+        ) {
+          statusText = "Istirahat";
         } else if (hour >= 15 || (hour === 15 && minute > 49)) {
-          statusText = 'Pasca Bursa';
+          statusText = "Pasca Bursa";
         } else {
-          statusText = 'Market Closed';
+          statusText = "Market Closed";
         }
       } else {
         if (hour < 9 || (hour === 9 && minute < 0)) {
-          statusText = 'Pra Buka';
-        } else if ((hour > 12 || (hour === 12 && minute > 0)) && (hour < 13 || (hour === 13 && minute < 30))) {
-          statusText = 'Istirahat';
+          statusText = "Pra Buka";
+        } else if (
+          (hour > 12 || (hour === 12 && minute > 0)) &&
+          (hour < 13 || (hour === 13 && minute < 30))
+        ) {
+          statusText = "Istirahat";
         } else if (hour >= 15 || (hour === 15 && minute > 49)) {
-          statusText = 'Pasca Bursa';
+          statusText = "Pasca Bursa";
         } else {
-          statusText = 'Market Closed';
+          statusText = "Market Closed";
         }
       }
-      statusClass = 'closed';
+      statusClass = "closed";
     }
   }
 
@@ -312,7 +347,7 @@ app.get("/api/market-status", async (req, res) => {
     date: now.format("DD MMM YYYY"),
     statusText: statusText,
     statusClass: statusClass,
-    holidayName: currentHolidayName
+    holidayName: currentHolidayName,
   });
 });
 
