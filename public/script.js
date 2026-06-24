@@ -148,22 +148,24 @@ function buildTagItems(s) {
 
   // === 2. DETEKSI SUPPORT / RESISTANCE ===
   if (chart.includes("support") || candle.includes("support")) {
-    items.push({ label: "Support Test", icon: "fa-hand" });
+    // fa-angles-up: Visual panah ganda ke atas, menandakan pantulan dari bawah
+    items.push({ label: "Support Test", icon: "fa-angles-up" });
   }
   if (chart.includes("resistance") || candle.includes("resistance")) {
-    items.push({ label: "Resistance Test", icon: "fa-hand" });
+    // fa-angles-down: Visual panah ganda ke bawah, menandakan penolakan dari atas
+    items.push({ label: "Resistance Test", icon: "fa-angles-down" });
   }
 
   // === 3. CANDLE PATTERN (HANYA JIKA NAMANYA SPESIFIK) ===
   const candlePatterns = [
-    { keywords: ["doji"], label: "Doji", icon: "fa-circle" },
+    { keywords: ["doji"], label: "Doji", icon: "fa-plus" },
     { keywords: ["harami"], label: "Harami", icon: "fa-circle-half-stroke" },
     { keywords: ["engulfing"], label: "Engulfing", icon: "fa-arrow-trend-up" },
     { keywords: ["hammer"], label: "Hammer", icon: "fa-gavel" },
     { keywords: ["shooting star"], label: "Shooting Star", icon: "fa-star" },
-    { keywords: ["marubozu"], label: "Marubozu", icon: "fa-square" },
+    { keywords: ["marubozu"], label: "Marubozu", icon: "fa-battery-full" }, // Ubah ke battery-full (body candle utuh/penuh)
     { keywords: ["spinning top"], label: "Spinning Top", icon: "fa-circle" },
-    { keywords: ["inside bar"], label: "Inside Bar", icon: "fa-square" },
+    { keywords: ["inside bar"], label: "Inside Bar", icon: "fa-minimize" }, // Ubah ke minimize (candle mengecil di dalam)
   ];
 
   for (const pattern of candlePatterns) {
