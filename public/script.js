@@ -3429,7 +3429,6 @@ function updateTotalSignals(running, closed) {
   if (el) el.innerText = total;
 }
 
-// ========== NOTIFICATION LOGIC ==========
 function checkSignalChanges(running, closed) {
   const prevRunningIds = localStorage.getItem("lastRunningIds") || "";
   const prevClosedIds = localStorage.getItem("lastClosedIds") || "";
@@ -3455,19 +3454,38 @@ function checkSignalChanges(running, closed) {
     const newSignals = running.filter((s) =>
       newRunning.includes(`${s.stockCode}-${s.signalDate}`),
     );
+
+    // Kelompokkan berdasarkan sesi
+    const groups = { session1: [], session2: [], bsjp: [], other: [] };
     newSignals.forEach((s) => {
-      const signalType = s.signalType || "WATCHLIST";
-      let emoji = "📊";
-      if (signalType.toUpperCase().includes("STRONG BUY")) emoji = "🔥";
-      else if (signalType.toUpperCase().includes("BUY")) emoji = "📈";
-      else if (signalType.toUpperCase().includes("SELL")) emoji = "📉";
-      else if (signalType.toUpperCase().includes("STRONG SELL")) emoji = "🔻";
-      const msg = `${emoji} ${s.stockCode} - ${signalType}`;
-      sendNotification("🔔 Today's Signals", msg);
-      addNotification("🔔 Today's Signals", msg, "signal");
+      if (s.signalType === "BSJP") {
+        groups.bsjp.push(s);
+      } else {
+        const session = getSessionFromDate(s.signalDate);
+        if (session === 1) groups.session1.push(s);
+        else if (session === 2) groups.session2.push(s);
+        else groups.other.push(s);
+      }
     });
+
+    // Fungsi helper kirim notifikasi per grup
+    function sendGroupNotification(groupName, signals) {
+      if (!signals || signals.length === 0) return;
+      const title = `NEW SIGNALS ${groupName}`;
+      const body = `${signals.length} sinyal baru terdeteksi.`;
+      sendNotification(title, body);
+      addNotification(title, body, "signal");
+    }
+
+    if (groups.session1.length)
+      sendGroupNotification("SESI 1", groups.session1);
+    if (groups.session2.length)
+      sendGroupNotification("SESI 2", groups.session2);
+    if (groups.bsjp.length) sendGroupNotification("BSJP", groups.bsjp);
+    if (groups.other.length) sendGroupNotification("LAINNYA", groups.other);
   }
 
+  // ===== BAGIAN CLOSED SIGNAL (TIDAK DIUBAH) =====
   const prevClosedArr = prevClosedIds ? prevClosedIds.split(",") : [];
   const currentClosedArr = currentClosedIds ? currentClosedIds.split(",") : [];
   const newClosed = currentClosedArr.filter(
