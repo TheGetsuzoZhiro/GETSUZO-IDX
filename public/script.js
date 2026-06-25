@@ -4481,3 +4481,15 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.hash = "home";
   }
 });
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('ServiceWorker berhasil didaftarkan dengan scope: ', registration.scope);
+      })
+      .catch(error => {
+        console.log('ServiceWorker gagal didaftarkan: ', error);
+      });
+  });
+}
