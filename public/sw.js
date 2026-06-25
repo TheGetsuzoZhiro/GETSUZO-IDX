@@ -1,15 +1,52 @@
-// ============ SERVICE WORKER UNTUK WEB PUSH ============
+// ============ KONFIGURASI CACHE ============
+const CACHE_NAME = 'getsuzo-cache-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/style.css',
+  '/script.js'
+  // Kamu bisa menambahkan file aset lain di sini seperti gambar logo jika perlu
+];
+
+// ============ INSTALL & CACHE ============
 self.addEventListener("install", (event) => {
   console.log("[SW] Installed");
-  event.waitUntil(self.skipWaiting());
+  
+  // Memaksa Service Worker baru untuk langsung aktif tanpa menunggu
+  self.skipWaiting();
+
+  // Menyimpan file dasar ke dalam cache
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log("[SW] Caching app shell");
+        return cache.addAll(urlsToCache);
+      })
+  );
 });
 
+// ============ ACTIVATE ============
 self.addEventListener("activate", (event) => {
   console.log("[SW] Activated");
   event.waitUntil(self.clients.claim());
 });
 
-// ============ TERIMA PUSH ============
+// ============ FETCH EVENT (WAJIB UNTUK PWA) ============
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Mengembalikan file dari cache jika tersedia
+        if (response) {
+          return response;
+        }
+        // Jika tidak ada di cache, ambil langsung dari jaringan (internet)
+        return fetch(event.request);
+      })
+  );
+});
+
+// ============ TERIMA PUSH NOTIFICATION ============
 self.addEventListener("push", (event) => {
   let data = { title: "Notifikasi Baru", body: "Ada update." };
 
@@ -24,7 +61,7 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body,
-    icon: "/assets/favicon/favicon-48x48.png", // Ganti dengan icon Anda
+    icon: "/assets/favicon/favicon-48x48.png", 
     badge: "/assets/favicon/favicon-32x32.png",
     vibrate: [200, 100, 200],
     data: {
