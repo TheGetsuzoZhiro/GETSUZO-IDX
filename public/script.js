@@ -585,7 +585,7 @@ function renderDailyReturnChartFromSignals(signals) {
 
 // ========== UPDATE DAILY CONTENT (BERBASIS SIGNALS) ==========
 async function updateDailyContent() {
-  await fetchSignals(false);
+  //await fetchSignals(false);
   const allSignals = [..._allRunning, ..._allClosed];
   const { start, end } = getDateRangeFromFilterState();
   const filtered = filterSignalsByDate(allSignals, start, end);
@@ -3376,13 +3376,15 @@ function renderDetailCharts(s, container = document) {
 
 // ========== FETCH DATA (REPORTS DI NONAKTIFKAN, PAKAI SIGNALS) ==========
 async function fetchReports() {
-  // Fungsi ini sekarang hanya sebagai wrapper untuk menjaga kompatibilitas polling
   const activeTab = document.querySelector(".view.active")?.id;
+  
   if (activeTab === "daily") {
     if (dailyRendered) {
-      await fetchSignals(false);
-      await updateDailyContent();
+      // 🔥 Daily sudah dirender, cukup fetch data terbaru dan update konten
+      await fetchSignals(false);      // Ambil data terbaru
+      await updateDailyContent();     // Update UI (TANPA fetch lagi)
     } else {
+      // 🔥 Daily belum dirender, renderDaily akan mengambil data sendiri
       renderDaily();
     }
   } else if (activeTab === "home") {
@@ -3392,25 +3394,37 @@ async function fetchReports() {
 }
 
 async function fetchSignals(showLoadingIndicator = true) {
-  if (isDetailView) {
-    try {
-      const res = await fetch(`${apiBase}/signals`);
-      if (!res.ok) throw new Error("Gagal fetch signals");
-      const data = await res.json();
-      _allRunning = data.running || [];
-      _allClosed = data.closed || [];
-      updateTotalSignals(_allRunning, _allClosed);
-      updateChartsFromSignals({ running: _allRunning, closed: _allClosed });
-      checkSignalChanges(_allRunning, _allClosed);
-    } catch (err) {
-      console.warn("Background fetch error:", err);
-    }
+  // Cegah eksekusi paralel
+  if (isFetching) {
+    console.log("⏳ Fetch already in progress, skipping...");
     return;
   }
+  isFetching = true;
 
-  if (showLoadingIndicator && currentTab === "signals" && !isDetailView)
-    showLoading("signals");
   try {
+    // ----- Branch untuk Detail View (background fetch) -----
+    if (isDetailView) {
+      try {
+        const res = await fetch(`${apiBase}/signals`);
+        if (!res.ok) throw new Error("Gagal fetch signals");
+        const data = await res.json();
+        _allRunning = data.running || [];
+        _allClosed = data.closed || [];
+        updateTotalSignals(_allRunning, _allClosed);
+        updateChartsFromSignals({ running: _allRunning, closed: _allClosed });
+        // Hanya satu panggilan checkSignalChanges di sini
+        checkSignalChanges(_allRunning, _allClosed);
+      } catch (err) {
+        console.warn("Background fetch error:", err);
+      }
+      return; // Selesai untuk detail view
+    }
+
+    // ----- Branch utama (normal) -----
+    if (showLoadingIndicator && currentTab === "signals" && !isDetailView) {
+      showLoading("signals");
+    }
+
     const res = await fetch(`${apiBase}/signals`);
     if (!res.ok) throw new Error("Gagal fetch signals");
     const data = await res.json();
@@ -3420,6 +3434,7 @@ async function fetchSignals(showLoadingIndicator = true) {
     _allRunning = running;
     _allClosed = closed;
 
+    // Update UI sesuai tab
     if (currentTab === "signals") {
       if (isDetailView) {
         isDetailView = false;
@@ -3437,9 +3452,13 @@ async function fetchSignals(showLoadingIndicator = true) {
       await showSignalList();
     }
 
+    // Update statistik dan chart
     updateTotalSignals(running, closed);
     updateChartsFromSignals({ running, closed });
+
+    // 🔥 HANYA SEKALI panggil checkSignalChanges
     checkSignalChanges(running, closed);
+
   } catch (err) {
     console.error(err);
     if (currentTab === "signals" && !isDetailView) {
@@ -3464,6 +3483,9 @@ async function fetchSignals(showLoadingIndicator = true) {
       `;
       signalListRendered = false;
     }
+  } finally {
+    // Reset flag setelah selesai, apapun hasilnya
+    isFetching = false;
   }
 }
 
@@ -3474,9 +3496,11 @@ function updateTotalSignals(running, closed) {
 }
 
 function checkSignalChanges(running, closed) {
+  // 1. BACA STATE LAMA dari localStorage (SEBELUM diubah)
   const prevRunningIds = localStorage.getItem("lastRunningIds") || "";
   const prevClosedIds = localStorage.getItem("lastClosedIds") || "";
-
+  
+  // 2. Hitung ID sinyal saat ini
   const currentRunningIds = running
     .map((s) => `${s.stockCode}-${s.signalDate}`)
     .sort()
@@ -3486,131 +3510,71 @@ function checkSignalChanges(running, closed) {
     .sort()
     .join(",");
 
+  // 3. Deteksi sinyal baru (bandingkan current dengan prev)
   const prevRunningArr = prevRunningIds ? prevRunningIds.split(",") : [];
-  const currentRunningArr = currentRunningIds
-    ? currentRunningIds.split(",")
-    : [];
+  const currentRunningArr = currentRunningIds ? currentRunningIds.split(",") : [];
+  const newRunning = currentRunningArr.filter(id => !prevRunningArr.includes(id));
 
-  // Mencari ID sinyal yang baru masuk
-  const newRunning = currentRunningArr.filter(
-    (id) => !prevRunningArr.includes(id),
+  // 4. SIMPAN state terbaru ke localStorage (SETELAH deteksi)
+  localStorage.setItem("lastRunningIds", currentRunningIds);
+  localStorage.setItem("lastClosedIds", currentClosedIds);
+
+  // 5. Jika tidak ada sinyal baru, stop
+  if (newRunning.length === 0) return;
+
+  // 6. Kelompokkan sinyal baru berdasarkan sesi
+  const newSignals = running.filter((s) =>
+    newRunning.includes(`${s.stockCode}-${s.signalDate}`)
   );
 
-  // Buat tanggal hari ini untuk kunci memori Anti-Spam (Format: YYYY-MM-DD)
+  const groups = { sesi1: [], sesi2: [], bsjp: [], other: [] };
+  newSignals.forEach((s) => {
+    if (s.signalType === "BSJP") {
+      groups.bsjp.push(s);
+    } else {
+      const session = getSessionFromDate(s.signalDate);
+      if (session === 1) groups.sesi1.push(s);
+      else if (session === 2) groups.sesi2.push(s);
+      else groups.other.push(s);
+    }
+  });
+
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
   }).format(new Date());
 
-  // ==========================================
-  // 1. PENANGANAN SINYAL BARU (NEW SIGNALS)
-  // ==========================================
-  if (newRunning.length > 0) {
-    const newSignals = running.filter((s) =>
-      newRunning.includes(`${s.stockCode}-${s.signalDate}`),
+  // 7. Fungsi helper untuk mengirim notifikasi 1x per sesi per hari
+  function sendOnce(groupKey, title, signals) {
+    if (!signals || signals.length === 0) return;
+    const cacheKey = `notif_${groupKey}_${today}`;
+    if (localStorage.getItem(cacheKey) === "true") return; // sudah pernah kirim hari ini
+
+    // Kirim notifikasi ke riwayat UI
+    addNotification(
+      title,
+      `Ada ${signals.length} sinyal baru masuk.`,
+      "signal"
     );
 
-    // Kelompokkan sinyal baru ke sesinya masing-masing
-    const groups = { session1: [], session2: [], bsjp: [], other: [] };
-    newSignals.forEach((s) => {
-      if (s.signalType === "BSJP") {
-        groups.bsjp.push(s);
-      } else {
-        const session = getSessionFromDate(s.signalDate);
-        if (session === 1) groups.session1.push(s);
-        else if (session === 2) groups.session2.push(s);
-        else groups.other.push(s);
-      }
-    });
-
-    // Fungsi helper untuk merangkum dan mengirim notif 1x per hari
-    function handleGroupNotification(groupName, signals, cacheKey) {
-      if (!signals || signals.length === 0) return;
-
-      const title = `NEW SIGNALS ${groupName}`;
-      const body = `${signals.length} sinyal saham baru terdeteksi untuk ${groupName}.`;
-
-      // Selalu catat ke riwayat lonceng di dalam aplikasi (UI)
-      addNotification(title, body, "signal");
-
-      // Cek apakah sistem SUDAH pernah mengirim Push Notif untuk sesi ini pada hari ini
-      const fullCacheKey = `notif_${cacheKey}_${today}`;
-      if (localStorage.getItem(fullCacheKey) === "true") {
-        // Jika sudah, hentikan eksekusi di sini agar tidak spam di HP pengguna
-        return;
-      }
-
-      // Jika belum, tandai bahwa sesi ini sudah terkirim hari ini
-      localStorage.setItem(fullCacheKey, "true");
-
-      // Kirim tembakan Push Notif latar belakang
-      fetch("/api/send-push", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
-      }).catch((err) => console.warn("Gagal kirim push:", err));
-    }
-
-    // Eksekusi per kelompok
-    handleGroupNotification("SESI 1", groups.session1, "sesi1");
-    handleGroupNotification("SESI 2", groups.session2, "sesi2");
-    handleGroupNotification("BSJP", groups.bsjp, "bsjp");
-    handleGroupNotification("LAINNYA", groups.other, "other");
-  }
-
-  // ==========================================
-  // 2. PENANGANAN SINYAL DITUTUP (TP/SL)
-  // ==========================================
-  const prevClosedArr = prevClosedIds ? prevClosedIds.split(",") : [];
-  const currentClosedArr = currentClosedIds ? currentClosedIds.split(",") : [];
-  const newClosed = currentClosedArr.filter(
-    (id) => !prevClosedArr.includes(id),
-  );
-
-  if (newClosed.length > 0) {
-    const closedSignals = closed.filter((s) =>
-      newClosed.includes(`${s.stockCode}-${s.signalDate}`),
-    );
-
-    let tpCount = 0;
-    let slCount = 0;
-
-    closedSignals.forEach((s) => {
-      const status = s.status;
-      const ret = s.returnPercent || 0;
-      const sign = ret >= 0 ? "+" : "";
-      const emoji = status === "TP" ? "✅" : "❌";
-
-      if (status === "TP") tpCount++;
-      else slCount++;
-
-      // Catat detail satu-satu di lonceng riwayat aplikasi (Silent)
-      addNotification(
-        "Signal Closed",
-        `${emoji} ${s.stockCode} Selesai ${sign}${ret.toFixed(2)}%`,
-        "closed",
-      );
-    });
-
-    // Rangkum notifikasi Push menjadi 1 tembakan saja
-    let title = "Sinyal Selesai";
-    let body = `Terdapat ${closedSignals.length} sinyal yang baru saja ditutup.`;
-
-    if (tpCount > 0 && slCount === 0)
-      body = `${tpCount} Sinyal berhasil Take Profit! ✅`;
-    else if (slCount > 0 && tpCount === 0)
-      body = `${slCount} Sinyal terkena Stop Loss. ❌`;
-    else body = `${tpCount} TP ✅ dan ${slCount} SL ❌ baru saja ditutup.`;
-
+    // Kirim push notifikasi ke background
     fetch("/api/send-push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body }),
-    }).catch(() => {});
+      body: JSON.stringify({
+        title,
+        body: `Ada ${signals.length} sinyal baru di ${groupKey}.`,
+      }),
+    }).catch((err) => console.warn("Gagal kirim push:", err));
+
+    // Tandai sudah terkirim hari ini
+    localStorage.setItem(cacheKey, "true");
   }
 
-  // Simpan state saat ini
-  localStorage.setItem("lastRunningIds", currentRunningIds);
-  localStorage.setItem("lastClosedIds", currentClosedIds);
+  // 8. Kirim notifikasi untuk masing-masing grup
+  sendOnce("sesi1", "SIGNALS SESI 1", groups.sesi1);
+  sendOnce("sesi2", "SIGNALS SESI 2", groups.sesi2);
+  sendOnce("bsjp", "BSJP", groups.bsjp);
+  // (opsional) sendOnce('other', 'SINYAL LAINNYA', groups.other);
 }
 
 // ========== NOTIFICATION UI ==========
