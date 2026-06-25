@@ -3570,7 +3570,7 @@ function checkSignalChanges(running, closed) {
       newClosed.includes(`${s.stockCode}-${s.signalDate}`),
     );
 
-    // Tetap catat ke riwayat UI (untuk semua TP & SL)
+    // 🔔 Catat ke riwayat UI (untuk semua TP & SL) – TIDAK MENGIRIM PUSH
     closedSignals.forEach((s) => {
       const status = s.status;
       const ret = s.returnPercent || 0;
@@ -3584,7 +3584,7 @@ function checkSignalChanges(running, closed) {
       );
     });
 
-    // 🔔 KIRIM PUSH NOTIFIKASI HANYA UNTUK SETIAP SINYAL TP (INDIVIDUAL)
+    // ✅ KIRIM PUSH NOTIFIKASI HANYA UNTUK SETIAP SINYAL TP (INDIVIDUAL)
     closedSignals.forEach((s) => {
       if (s.status === "TP") {
         const ret = s.returnPercent || 0;
@@ -3595,14 +3595,13 @@ function checkSignalChanges(running, closed) {
         const title = `✅ TP: ${s.stockCode}`;
         const body = `${s.stockCode} Take Profit ${sign}${ret.toFixed(2)}% (Entry ${fmtPriceNoRp(entry)} ➔ Exit ${fmtPriceNoRp(exit)})`;
 
-        // Kirim push ke semua subscriber
         fetch("/api/send-push", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title, body }),
         }).catch((err) => console.warn("Gagal kirim push TP:", err));
       }
-      // ❌ SL tidak dikirim push sama sekali (diam saja)
+      // ❌ SL TIDAK DIKIRIM PUSH SAMA SEKALI
     });
   }
 
