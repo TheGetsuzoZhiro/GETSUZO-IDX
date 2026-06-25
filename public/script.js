@@ -1252,7 +1252,10 @@ function renderBsjpDetailContent(
       : "#3b82f6";
   const logoHtml = `<span class="detail-logo-text"><img src="${logoUrl}" alt="${s.stockCode}" style="width:50px; height:64px; object-fit:contain; border:none; background:transparent; display:block;" onerror="this.onerror=null; this.src='${parqetUrl}'; this.onerror=function(){ this.style.display='none'; this.nextElementSibling.style.display='inline-block'; }"><span style="display:none; width:64px; height:64px; line-height:64px; text-align:center; background:${bgColor}; color:#fff; font-size:1.1rem; font-weight:700; font-family:'JetBrains Mono',monospace;">${s.stockCode.substring(0, 2)}</span></span>`;
 
-  const breakEvenStatus = s.breakEven ? "TP tercapai" : "Belum";
+  // ===== UPDATE: breakEven status tanpa emoji Unicode =====
+  const breakEvenStatus = s.breakEven ? "Locked" : "Belum TP";
+  const breakEvenIcon = s.breakEven ? "fa-check-circle" : "fa-xmark-circle";
+  const breakEvenColor = s.breakEven ? "#10b981" : "#f59e0b";
 
   const isTP = s.status === "TP";
   const isHardSL = s.status === "SL" && !s.breakEven;
@@ -1261,9 +1264,8 @@ function renderBsjpDetailContent(
   const isStep1Active = true;
   const step1State = isHardSL ? "failed" : "default";
 
-  const isStep2Active = s.breakEven === true;
-
-  const isStep3Active = s.breakEven === true;
+  const isStep2Active = s.breakEven === true; // Lock 2% aktif
+  const isStep3Active = s.breakEven === true; // Trailing aktif setelah lock
   const step3State = isTrailingHit ? "warning" : "default";
 
   function stepCircle(active, label, desc, icon, state = "default") {
@@ -1331,15 +1333,12 @@ function renderBsjpDetailContent(
       </div>
       
       ${stepCircle(isStep1Active, "Entry", "SL -2%", "1", step1State)}
-      ${stepCircle(isStep2Active, "Break Even", "TP 2% → BE", "2")}
-      ${stepCircle(isStep3Active, "Trailing Stop", isTrailingHit ? "BEP/Profit Terkunci" : "Lock Profit 1%", "3", step3State)}
+      ${stepCircle(isStep2Active, "Take Profit", "Lock 2%", "2")}
+      ${stepCircle(isStep3Active, "Trailing Stop", "Trailing Stop 1%", "3", step3State)}
     </div>
     <div style="display:flex; justify-content:center; gap:0.5rem; font-size:0.55rem; color:var(--text-secondary); margin-top:0.2rem;">
       <span style="display:flex; align-items:center; gap:0.2rem;">
         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Active
-      </span>
-      <span style="display:flex; align-items:center; gap:0.2rem;">
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span> Trailing Hit
       </span>
       <span style="display:flex; align-items:center; gap:0.2rem;">
         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ef4444;"></span> Stop Loss
@@ -1347,14 +1346,14 @@ function renderBsjpDetailContent(
     </div>
     <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.5rem 0.6rem; margin-top:0.5rem; border:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:0.35rem; font-size:0.65rem; color:var(--text-secondary); line-height:1.3;">
       <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle" style="color:#8b5cf6; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Stop Loss awal <strong>-2%</strong> dari Entry.</span></div>
-      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle-check" style="color:#10b981; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Jika TP 2% tercapai, SL pindah ke Entry (Break Even).</span></div>
-      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle-check" style="color:#10b981; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Setelah BE, SL menjadi <strong>Trailing 1%</strong> di bawah High.</span></div>
+      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle-check" style="color:#10b981; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Jika TP 2% tercapai, SL pindah ke <strong>Lock 2%</strong> (minimal profit 2%).</span></div>
+      <div style="display:flex; align-items:start;"><i class="fa-regular fa-circle-check" style="color:#10b981; font-size:0.5rem; margin-right:0.4rem; margin-top:0.15rem;"></i> <span>Setelah Lock, trailing 1% dengan <strong>minimum 2% profit</strong>.</span></div>
     </div>
   `;
 
   const breakEvenDisplay = `
-    <div style="display:flex; align-items:center; gap:0.35rem; font-weight:600; color:${s.breakEven ? "#10b981" : "#f59e0b"};">
-      <i class="fa-solid ${s.breakEven ? "fa-check-circle" : "fa-xmark-circle"}" style="font-size:0.95rem;"></i>
+    <div style="display:flex; align-items:center; gap:0.35rem; font-weight:600; color:${breakEvenColor};">
+      <i class="fa-solid ${breakEvenIcon}" style="font-size:0.95rem;"></i>
       <span style="font-size:0.85rem;">${breakEvenStatus}</span>
     </div>
   `;
@@ -1368,7 +1367,7 @@ function renderBsjpDetailContent(
       exitIcon = "fa-check-circle";
       exitColor = "var(--success)";
     } else if (isTrailingHit) {
-      exitLabel = "Trailing Hit (BEP)";
+      exitLabel = "Trailing Hit (Locked)";
       exitIcon = "fa-shield-halved";
       exitColor = "#f59e0b";
     } else {
@@ -1389,7 +1388,7 @@ function renderBsjpDetailContent(
   } else if (s.breakEven) {
     trailingDisplay = `
       <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
-        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-chart-line" style="margin-right:0.2rem;"></i>Trailing Stop Aktif</div>
+        <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-chart-line" style="margin-right:0.2rem;"></i>Trailing Stop (min 2%)</div>
         <div style="font-weight:600; color:var(--success); font-size:0.85rem;">${fmtPrice(s.sl)}</div>
       </div>
     `;
@@ -1470,7 +1469,7 @@ function renderBsjpDetailContent(
         <div style="padding:0.5rem 0.75rem;">
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; font-size:0.7rem;">
             <div style="background:rgba(255,255,255,0.02); border-radius:6px; padding:0.65rem 0.6rem; border:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; justify-content:center;">
-              <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-scale-balanced" style="margin-right:0.2rem;"></i>Break Even</div>
+              <div style="color:var(--text-secondary); font-size:0.6rem; margin-bottom:0.3rem;"><i class="fa-solid fa-scale-balanced" style="margin-right:0.2rem;"></i>Lock Profit</div>
               ${breakEvenDisplay}
             </div>
             ${trailingDisplay}
@@ -4273,30 +4272,34 @@ async function subscribeToPush() {
   }
 
   try {
-    // 1. Daftarkan service worker (pastikan path /sw.js)
+    // 1. Daftarkan service worker
     const registration = await navigator.serviceWorker.register("/sw.js");
 
-    // 2. Minta izin notifikasi (harus dari gestur pengguna)
+    // Trik khusus iOS: Pastikan service worker benar-benar siap
+    await navigator.serviceWorker.ready;
+
+    // 2. Minta izin notifikasi
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       console.warn("⚠️ Notifikasi ditolak pengguna.");
       return false;
     }
 
-    // 3. Cek apakah sudah subscribe
+    // 3. Cek apakah sudah subscribe di browser
     let subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
-      console.log("✅ Already subscribed:", subscription.endpoint);
-      return true;
+
+    if (!subscription) {
+      // Jika belum, buat subscription baru
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      console.log("✅ Dibuat subscription baru di browser.");
+    } else {
+      console.log("✅ Menggunakan subscription lama dari browser.");
     }
 
-    // 4. Subscribe baru
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
-
-    // 5. Kirim subscription ke server
+    // 4. WAJIB KIRIM KE SERVER APAPUN YANG TERJADI (Agar tersimpan di MongoDB)
     const response = await fetch("/api/save-subscription", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4304,7 +4307,7 @@ async function subscribeToPush() {
     });
 
     if (response.ok) {
-      console.log("✅ Berhasil subscribe push!");
+      console.log("✅ Berhasil sinkronisasi token push ke Database server!");
       return true;
     } else {
       console.error("❌ Gagal simpan subscription ke server");
