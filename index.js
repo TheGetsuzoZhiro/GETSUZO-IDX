@@ -5,8 +5,8 @@ const path = require("path");
 const os = require("os");
 const webpush = require("web-push");
 const mongoose = require("mongoose");
+const sentPushesCache = new Map();
 
-// ============ KONFIGURASI ZONA WAKTU ============
 moment.tz.setDefault("Asia/Jakarta");
 
 // Variabel pushSubscriptions (RAM) dihapus karena sudah diganti database
@@ -88,10 +88,14 @@ const SubscriptionSchema = new mongoose.Schema(
       auth: String,
     },
   },
-  { timestamps: true, versionKey: false }
+  { timestamps: true, versionKey: false },
 );
 
-const SubscriptionModel = mongoose.model("PushSubscription", SubscriptionSchema, "push_subscriptions");
+const SubscriptionModel = mongoose.model(
+  "PushSubscription",
+  SubscriptionSchema,
+  "push_subscriptions",
+);
 
 // ============ YAHOO FINANCE & MARKET TIME HELPERS ============
 const yahooCache = new Map();
@@ -353,9 +357,9 @@ app.post("/api/save-subscription", async (req, res) => {
     await SubscriptionModel.findOneAndUpdate(
       { endpoint: subscription.endpoint },
       subscription,
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
-    
+
     console.log(`✅ Subscription berhasil disimpan permanen ke MongoDB.`);
     res.json({ success: true });
   } catch (error) {
@@ -364,7 +368,6 @@ app.post("/api/save-subscription", async (req, res) => {
   }
 });
 
-// === ROUTE YANG DIUBAH: MENGIRIM PUSH & MEMBERSIHKAN DB ===
 app.post("/api/send-push", async (req, res) => {
   const { title, body } = req.body;
 
@@ -372,12 +375,34 @@ app.post("/api/send-push", async (req, res) => {
     return res.status(400).json({ error: "Title and body required" });
   }
 
+  // --- PROTEKSI ANTI-SPAM (MENCEGAH DUPLIKAT DARI MULTI-CLIENT) ---
+  const today = moment().tz("Asia/Jakarta").format("YYYY-MM-DD");
+
+  // Membuat kunci unik berdasarkan Judul dan Tanggal (Contoh: "SIGNALS SESI 1_2026-06-25")
+  const pushKey = `${title.toUpperCase().trim()}_${today}`;
+
+  // Jika backend sudah pernah menembakkan notifikasi dengan judul ini hari ini, abaikan request!
+  if (sentPushesCache.has(pushKey)) {
+    console.log(
+      `[SPAM PROTECT] Blokir push duplikat: "${title}". Sudah dikirim hari ini.`,
+    );
+    return res.json({
+      success: true,
+      message:
+        "Push sudah dikirim sebelumnya untuk sesi ini, dibatalkan untuk mencegah spam.",
+    });
+  }
+
+  // Kunci sistem segera agar request dari client/tab lain yang masuk di milidetik yang sama langsung terblokir
+  sentPushesCache.set(pushKey, true);
+  // ----------------------------------------------------------------
+
   const payload = JSON.stringify({ title, body });
 
   // Tambahkan opsi pengiriman khusus agar handal di iOS & Android background
   const pushOptions = {
     TTL: 86400, // Waktu simpan di server push (1 hari)
-    urgency: "high" // Memaksa iOS/Android langsung bangun di background
+    urgency: "high", // Memaksa iOS/Android langsung bangun di background
   };
 
   try {
@@ -385,24 +410,42 @@ app.post("/api/send-push", async (req, res) => {
     const activeSubscriptions = await SubscriptionModel.find({});
 
     if (activeSubscriptions.length === 0) {
-      return res.json({ success: true, message: "Tidak ada subscriber terdaftar." });
+      // Jika kosong, hapus kunci cache agar bisa dicoba lagi nanti
+      sentPushesCache.delete(pushKey);
+      return res.json({
+        success: true,
+        message: "Tidak ada subscriber terdaftar.",
+      });
     }
 
     const promises = activeSubscriptions.map((subscription) =>
-      webpush.sendNotification(subscription, payload, pushOptions).catch(async (err) => {
-        console.error("❌ Gagal kirim ke endpoint:", subscription.endpoint, "Motive:", err.message);
-        
-        // Gunting/Hapus token dari MongoDB jika statusnya 410 (Gone) atau 404 (Not Found)
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await SubscriptionModel.deleteOne({ endpoint: subscription.endpoint });
-          console.log(`🗑️ Membersihkan token mati dari DB: ${subscription.endpoint}`);
-        }
-      })
+      webpush
+        .sendNotification(subscription, payload, pushOptions)
+        .catch(async (err) => {
+          console.error(
+            "❌ Gagal kirim ke endpoint:",
+            subscription.endpoint,
+            "Motive:",
+            err.message,
+          );
+
+          // Gunting/Hapus token dari MongoDB jika statusnya 410 (Gone) atau 404 (Not Found)
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await SubscriptionModel.deleteOne({
+              endpoint: subscription.endpoint,
+            });
+            console.log(
+              `🗑️ Membersihkan token mati dari DB: ${subscription.endpoint}`,
+            );
+          }
+        }),
     );
 
     await Promise.all(promises);
     res.json({ success: true, sent: activeSubscriptions.length });
   } catch (error) {
+    // Jika gagal total (misal VAPID error), hapus kunci cache agar sistem bisa mencoba ulang
+    sentPushesCache.delete(pushKey);
     res.status(500).json({ error: error.message });
   }
 });
