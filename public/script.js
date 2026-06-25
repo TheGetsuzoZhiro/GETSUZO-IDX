@@ -3490,16 +3490,26 @@ function checkSignalChanges(running, closed) {
   const currentRunningArr = currentRunningIds
     ? currentRunningIds.split(",")
     : [];
+
+  // Mencari ID sinyal yang baru masuk
   const newRunning = currentRunningArr.filter(
     (id) => !prevRunningArr.includes(id),
   );
 
+  // Buat tanggal hari ini untuk kunci memori Anti-Spam (Format: YYYY-MM-DD)
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+  }).format(new Date());
+
+  // ==========================================
+  // 1. PENANGANAN SINYAL BARU (NEW SIGNALS)
+  // ==========================================
   if (newRunning.length > 0) {
     const newSignals = running.filter((s) =>
       newRunning.includes(`${s.stockCode}-${s.signalDate}`),
     );
 
-    // Kelompokkan berdasarkan sesi
+    // Kelompokkan sinyal baru ke sesinya masing-masing
     const groups = { session1: [], session2: [], bsjp: [], other: [] };
     newSignals.forEach((s) => {
       if (s.signalType === "BSJP") {
@@ -3512,16 +3522,27 @@ function checkSignalChanges(running, closed) {
       }
     });
 
-    function sendGroupNotification(groupName, signals) {
+    // Fungsi helper untuk merangkum dan mengirim notif 1x per hari
+    function handleGroupNotification(groupName, signals, cacheKey) {
       if (!signals || signals.length === 0) return;
-      const title = `NEW SIGNALS ${groupName}`;
-      const body = `${signals.length} sinyal baru terdeteksi.`;
 
-      // Notifikasi lokal (seperti sebelumnya)
-      sendNotification(title, body);
+      const title = `NEW SIGNALS ${groupName}`;
+      const body = `${signals.length} sinyal saham baru terdeteksi untuk ${groupName}.`;
+
+      // Selalu catat ke riwayat lonceng di dalam aplikasi (UI)
       addNotification(title, body, "signal");
 
-      // Kirim PUSH ke semua subscriber via backend
+      // Cek apakah sistem SUDAH pernah mengirim Push Notif untuk sesi ini pada hari ini
+      const fullCacheKey = `notif_${cacheKey}_${today}`;
+      if (localStorage.getItem(fullCacheKey) === "true") {
+        // Jika sudah, hentikan eksekusi di sini agar tidak spam di HP pengguna
+        return;
+      }
+
+      // Jika belum, tandai bahwa sesi ini sudah terkirim hari ini
+      localStorage.setItem(fullCacheKey, "true");
+
+      // Kirim tembakan Push Notif latar belakang
       fetch("/api/send-push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3529,15 +3550,16 @@ function checkSignalChanges(running, closed) {
       }).catch((err) => console.warn("Gagal kirim push:", err));
     }
 
-    if (groups.session1.length)
-      sendGroupNotification("SESI 1", groups.session1);
-    if (groups.session2.length)
-      sendGroupNotification("SESI 2", groups.session2);
-    if (groups.bsjp.length) sendGroupNotification("BSJP", groups.bsjp);
-    if (groups.other.length) sendGroupNotification("LAINNYA", groups.other);
+    // Eksekusi per kelompok
+    handleGroupNotification("SESI 1", groups.session1, "sesi1");
+    handleGroupNotification("SESI 2", groups.session2, "sesi2");
+    handleGroupNotification("BSJP", groups.bsjp, "bsjp");
+    handleGroupNotification("LAINNYA", groups.other, "other");
   }
 
-  // ===== BAGIAN CLOSED SIGNAL (TIDAK DIUBAH) =====
+  // ==========================================
+  // 2. PENANGANAN SINYAL DITUTUP (TP/SL)
+  // ==========================================
   const prevClosedArr = prevClosedIds ? prevClosedIds.split(",") : [];
   const currentClosedArr = currentClosedIds ? currentClosedIds.split(",") : [];
   const newClosed = currentClosedArr.filter(
@@ -3548,18 +3570,45 @@ function checkSignalChanges(running, closed) {
     const closedSignals = closed.filter((s) =>
       newClosed.includes(`${s.stockCode}-${s.signalDate}`),
     );
+
+    let tpCount = 0;
+    let slCount = 0;
+
     closedSignals.forEach((s) => {
       const status = s.status;
       const ret = s.returnPercent || 0;
       const sign = ret >= 0 ? "+" : "";
       const emoji = status === "TP" ? "✅" : "❌";
-      const title = status === "TP" ? "Take Profit" : "Stop Loss";
-      const msg = `${emoji} ${s.stockCode} ${title} ${sign}${ret.toFixed(2)}%`;
-      sendNotification("Signal Closed", msg);
-      addNotification("Signal Closed", msg, "closed");
+
+      if (status === "TP") tpCount++;
+      else slCount++;
+
+      // Catat detail satu-satu di lonceng riwayat aplikasi (Silent)
+      addNotification(
+        "Signal Closed",
+        `${emoji} ${s.stockCode} Selesai ${sign}${ret.toFixed(2)}%`,
+        "closed",
+      );
     });
+
+    // Rangkum notifikasi Push menjadi 1 tembakan saja
+    let title = "Sinyal Selesai";
+    let body = `Terdapat ${closedSignals.length} sinyal yang baru saja ditutup.`;
+
+    if (tpCount > 0 && slCount === 0)
+      body = `${tpCount} Sinyal berhasil Take Profit! ✅`;
+    else if (slCount > 0 && tpCount === 0)
+      body = `${slCount} Sinyal terkena Stop Loss. ❌`;
+    else body = `${tpCount} TP ✅ dan ${slCount} SL ❌ baru saja ditutup.`;
+
+    fetch("/api/send-push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body }),
+    }).catch(() => {});
   }
 
+  // Simpan state saat ini
   localStorage.setItem("lastRunningIds", currentRunningIds);
   localStorage.setItem("lastClosedIds", currentClosedIds);
 }
