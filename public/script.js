@@ -160,7 +160,11 @@ function buildTagItems(s) {
   const candlePatterns = [
     { keywords: ["doji"], label: "Doji", icon: "fa-plus" },
     { keywords: ["harami"], label: "Harami", icon: "fa-circle-half-stroke" },
-    { keywords: ["engulfing"], label: "Engulfing", icon: "fa-arrow-trend-up" },
+    {
+      keywords: ["engulfing"],
+      label: "Engulfing",
+      icon: "fa-up-right-and-down-left-from-center",
+    },
     { keywords: ["hammer"], label: "Hammer", icon: "fa-gavel" },
     { keywords: ["shooting star"], label: "Shooting Star", icon: "fa-star" },
     { keywords: ["marubozu"], label: "Marubozu", icon: "fa-battery-full" }, // Ubah ke battery-full (body candle utuh/penuh)
