@@ -3570,19 +3570,13 @@ function checkSignalChanges(running, closed) {
       newClosed.includes(`${s.stockCode}-${s.signalDate}`),
     );
 
-    let tpCount = 0;
-    let slCount = 0;
-
+    // Tetap catat ke riwayat UI (untuk semua TP & SL)
     closedSignals.forEach((s) => {
       const status = s.status;
       const ret = s.returnPercent || 0;
       const sign = ret >= 0 ? "+" : "";
       const emoji = status === "TP" ? "✅" : "❌";
 
-      if (status === "TP") tpCount++;
-      else slCount++;
-
-      // Catat detail satu-satu di lonceng riwayat aplikasi (Silent)
       addNotification(
         "Signal Closed",
         `${emoji} ${s.stockCode} Selesai ${sign}${ret.toFixed(2)}%`,
@@ -3590,21 +3584,26 @@ function checkSignalChanges(running, closed) {
       );
     });
 
-    // Rangkum notifikasi Push menjadi 1 tembakan saja
-    let title = "Sinyal Selesai";
-    let body = `Terdapat ${closedSignals.length} sinyal yang baru saja ditutup.`;
+    // 🔔 KIRIM PUSH NOTIFIKASI HANYA UNTUK SETIAP SINYAL TP (INDIVIDUAL)
+    closedSignals.forEach((s) => {
+      if (s.status === "TP") {
+        const ret = s.returnPercent || 0;
+        const sign = ret >= 0 ? "+" : "";
+        const entry = s.entryPrice || 0;
+        const exit = s.exitPrice || s.tp1 || 0;
 
-    if (tpCount > 0 && slCount === 0)
-      body = `${tpCount} Sinyal berhasil Take Profit! ✅`;
-    else if (slCount > 0 && tpCount === 0)
-      body = `${slCount} Sinyal terkena Stop Loss. ❌`;
-    else body = `${tpCount} TP ✅ dan ${slCount} SL ❌ baru saja ditutup.`;
+        const title = `✅ TP: ${s.stockCode}`;
+        const body = `${s.stockCode} Take Profit ${sign}${ret.toFixed(2)}% (Entry ${fmtPriceNoRp(entry)} ➔ Exit ${fmtPriceNoRp(exit)})`;
 
-    fetch("/api/send-push", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body }),
-    }).catch(() => {});
+        // Kirim push ke semua subscriber
+        fetch("/api/send-push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, body }),
+        }).catch((err) => console.warn("Gagal kirim push TP:", err));
+      }
+      // ❌ SL tidak dikirim push sama sekali (diam saja)
+    });
   }
 
   // Simpan state saat ini
