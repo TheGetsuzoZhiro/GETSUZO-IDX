@@ -527,7 +527,19 @@
         </button>
       </div>
     </div>
-    <!-- ============ SCRIPTS ============ -->
+    <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('[SW] Berhasil didaftarkan dengan scope:', registration.scope);
+        })
+        .catch(error => {
+          console.error('[SW] Gagal didaftarkan:', error);
+        });
+    });
+  }
+</script>
     <script>
       // Fungsi update market status (dot & teks di header)
       async function updateMarketStatus() {
@@ -593,10 +605,6 @@
         updateMarketStatus();
         updateSystemStatus();
       }, 30000);
-
-      // ===== SCRIPT LAINNYA (untuk tab, chart, dll) =====
-      // ... (sisanya dari script.js Anda, atau bisa diimpor dari file terpisah)
-      // Di sini kami sertakan placeholder agar tidak error
       console.log("Dashboard loaded");
     </script>
 
