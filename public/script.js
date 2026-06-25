@@ -3473,8 +3473,9 @@ function updateTotalSignals(running, closed) {
 }
 
 function checkSignalChanges(running, closed) {
-  const prevRunningIds = localStorage.getItem("lastRunningIds") || "";
-  const prevClosedIds = localStorage.getItem("lastClosedIds") || "";
+  // 1. HAPUS '|| ""' agar sistem bisa mendeteksi nilai null (akses pertama/cache kosong)
+  const prevRunningIds = localStorage.getItem("lastRunningIds");
+  const prevClosedIds = localStorage.getItem("lastClosedIds");
 
   const currentRunningIds = running
     .map((s) => `${s.stockCode}-${s.signalDate}`)
@@ -3485,6 +3486,21 @@ function checkSignalChanges(running, closed) {
     .sort()
     .join(",");
 
+  // ==========================================
+  // 🛑 BLOK WAJIB: PENCEGAH SPAM MASA LALU (AMNESIA CACHE)
+  // ==========================================
+  if (prevRunningIds === null || prevClosedIds === null) {
+    console.log(
+      "Sinkronisasi awal. Mencegah spam notifikasi TP dari masa lalu.",
+    );
+    // Simpan data ke memori secara diam-diam
+    localStorage.setItem("lastRunningIds", currentRunningIds);
+    localStorage.setItem("lastClosedIds", currentClosedIds);
+    // Hentikan fungsi sampai di sini! Jangan eksekusi push apapun.
+    return;
+  }
+
+  // Jika bukan akses pertama, ubah string memori ke bentuk array
   const prevRunningArr = prevRunningIds ? prevRunningIds.split(",") : [];
   const currentRunningArr = currentRunningIds
     ? currentRunningIds.split(",")
@@ -3534,7 +3550,6 @@ function checkSignalChanges(running, closed) {
       // Cek apakah sistem SUDAH pernah mengirim Push Notif untuk sesi ini pada hari ini
       const fullCacheKey = `notif_${cacheKey}_${today}`;
       if (localStorage.getItem(fullCacheKey) === "true") {
-        // Jika sudah, hentikan eksekusi di sini agar tidak spam di HP pengguna
         return;
       }
 
@@ -4482,14 +4497,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('ServiceWorker berhasil didaftarkan dengan scope: ', registration.scope);
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => {
+        console.log(
+          "ServiceWorker berhasil didaftarkan dengan scope: ",
+          registration.scope,
+        );
       })
-      .catch(error => {
-        console.log('ServiceWorker gagal didaftarkan: ', error);
+      .catch((error) => {
+        console.log("ServiceWorker gagal didaftarkan: ", error);
       });
   });
 }
