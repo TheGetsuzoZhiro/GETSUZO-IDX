@@ -528,19 +528,6 @@
       </div>
     </div>
     <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('[SW] Berhasil didaftarkan dengan scope:', registration.scope);
-        })
-        .catch(error => {
-          console.error('[SW] Gagal didaftarkan:', error);
-        });
-    });
-  }
-</script>
-    <script>
       // Fungsi update market status (dot & teks di header)
       async function updateMarketStatus() {
         try {
