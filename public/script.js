@@ -4298,7 +4298,6 @@ function createParticles() {
   document.head.appendChild(style);
 }
 
-// ============ WEB PUSH CLIENT ==========
 const VAPID_PUBLIC_KEY =
   "BCGyIOUseFBON2YXTAk-rcvncZ65jkbKqb2ShjOuvZhP08HLvaJJis5Bsx8ybuVVcZbXZow5GRrl9ykSiV0Y3B0";
 
@@ -4313,6 +4312,23 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+// HELPER BARU: Menyelaraskan Tampilan Tombol Notifikasi berdasarkan status asli HP
+function updatePushButtonUI() {
+  const pushBtn = document.getElementById("enablePushBtn");
+  if (!pushBtn) return;
+
+  if (Notification.permission === "granted") {
+    localStorage.setItem("pushActive", "true");
+    pushBtn.style.borderColor = "#10b981";
+    pushBtn.style.borderWidth = "2px";
+    pushBtn.style.borderStyle = "solid";
+    pushBtn.style.borderRadius = "4px";
+    pushBtn.title = "Notifikasi Aktif";
+    // Opsional: Anda bisa mengubah teks tombolnya jika mau
+    // pushBtn.innerText = "Notifikasi Aktif ✅";
+  }
+}
+
 async function subscribeToPush() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     console.warn("⚠️ Push not supported in this browser.");
@@ -4320,24 +4336,17 @@ async function subscribeToPush() {
   }
 
   try {
-    // 1. Daftarkan service worker
-    const registration = await navigator.serviceWorker.register("/sw.js");
+    const registration = await navigator.serviceWorker.ready;
 
-    // Trik khusus iOS: Pastikan service worker benar-benar siap
-    await navigator.serviceWorker.ready;
-
-    // 2. Minta izin notifikasi
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
       console.warn("⚠️ Notifikasi ditolak pengguna.");
       return false;
     }
 
-    // 3. Cek apakah sudah subscribe di browser
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
-      // Jika belum, buat subscription baru
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
@@ -4347,7 +4356,6 @@ async function subscribeToPush() {
       console.log("✅ Menggunakan subscription lama dari browser.");
     }
 
-    // 4. WAJIB KIRIM KE SERVER APAPUN YANG TERJADI (Agar tersimpan di MongoDB)
     const response = await fetch("/api/save-subscription", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4367,6 +4375,56 @@ async function subscribeToPush() {
   }
 }
 
+async function sinkronisasiPushNotification() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    console.log("Push notification tidak didukung di browser ini.");
+    return;
+  }
+
+  try {
+    if (Notification.permission === "granted") {
+      console.log(
+        "🔄 Izin sudah AKTIF di HP. Memeriksa validasi token ke MongoDB...",
+      );
+
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+
+      // JIKA TOKEN HILANG (kasus diinstal ulang seperti yang Anda alami)
+      if (!subscription) {
+        console.log(
+          "⚠️ Token di HP kosong (efek install ulang). Membuat token baru secara diam-diam...",
+        );
+
+        // KOREKSI: Menggunakan variabel global VAPID_PUBLIC_KEY agar rapi
+        const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedKey,
+        });
+      }
+
+      await fetch("/api/save-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription),
+      });
+
+      console.log("✅ Token berhasil disinkronkan kembali ke MongoDB!");
+
+      // KOREKSI: Pastikan UI tombol disesuaikan menjadi hijau
+      updatePushButtonUI();
+    } else {
+      console.log(
+        "ℹ️ User belum mengizinkan notifikasi atau status masih 'default/denied'.",
+      );
+    }
+  } catch (error) {
+    console.error("❌ Gagal sinkronisasi push token:", error.message);
+  }
+}
+
 // ========== INIT ==========
 document.addEventListener("DOMContentLoaded", () => {
   loadNotifications();
@@ -4374,11 +4432,16 @@ document.addEventListener("DOMContentLoaded", () => {
   createParticles();
   initTabs();
 
+  // KOREKSI: Jalankan fungsi pengecekan tombol saat aplikasi pertama dibuka
+  updatePushButtonUI();
+
   const pushBtn = document.getElementById("enablePushBtn");
   if (pushBtn) {
     pushBtn.addEventListener("click", async () => {
-      // Cek apakah sudah aktif
-      if (localStorage.getItem("pushActive") === "true") {
+      if (
+        localStorage.getItem("pushActive") === "true" &&
+        Notification.permission === "granted"
+      ) {
         alert("✅ Notifikasi sudah aktif.");
         return;
       }
@@ -4389,11 +4452,7 @@ document.addEventListener("DOMContentLoaded", () => {
         alert(
           "✅ Notifikasi push aktif! Anda akan menerima notifikasi di latar belakang.",
         );
-        pushBtn.style.borderColor = "#10b981";
-        pushBtn.style.borderWidth = "2px";
-        pushBtn.style.borderStyle = "solid";
-        pushBtn.style.borderRadius = "4px";
-        pushBtn.title = "Notifikasi Aktif";
+        updatePushButtonUI(); // Update UI tombol menjadi hijau
       } else {
         alert(
           "❌ Gagal mengaktifkan notifikasi. Pastikan browser mendukung dan izin diberikan.",
@@ -4493,6 +4552,9 @@ if ("serviceWorker" in navigator) {
           "ServiceWorker berhasil didaftarkan dengan scope: ",
           registration.scope,
         );
+
+        // Panggil sinkronisasi tepat setelah Service Worker berhasil/siap
+        sinkronisasiPushNotification();
       })
       .catch((error) => {
         console.log("ServiceWorker gagal didaftarkan: ", error);
