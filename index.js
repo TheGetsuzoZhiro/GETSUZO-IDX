@@ -487,3 +487,171 @@ app.listen(PORT, "0.0.0.0", async () => {
   console.log(`   • http://${ip}:${PORT}`);
   console.log(`\n✅ Read-Only Server running on Port: ${PORT}`);
 });
+
+// =========================================================================
+// 🚀 SERVER-SIDE WATCHDOG (BACKGROUND PUSH TRIGGER SUNGGUHAN)
+// =========================================================================
+let serverLastRunningIds = null;
+let serverLastClosedIds = null;
+
+// Helper untuk waktu sesi
+function getSessionFromDate(signalDate) {
+  if (!signalDate) return null;
+  const date = new Date(signalDate);
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const time = hour + minute / 60;
+  if (time >= 4 && time < 12) return 1;
+  if (time >= 12 && time <= 16) return 2;
+  return null;
+}
+
+// Helper untuk menembak push dari dalam server sendiri
+async function triggerInternalPush(title, body) {
+  const today = moment().tz("Asia/Jakarta").format("YYYY-MM-DD");
+  const pushKey = `${title.toUpperCase().trim()}_${today}`;
+
+  if (sentPushesCache.has(pushKey)) {
+    console.log(`[WATCHDOG] Blokir spam harian: "${title}" sudah terkirim.`);
+    return;
+  }
+  sentPushesCache.set(pushKey, true);
+
+  const payload = JSON.stringify({ title, body });
+  const pushOptions = { TTL: 86400, urgency: "high" };
+
+  try {
+    const activeSubscriptions = await SubscriptionModel.find({});
+    if (activeSubscriptions.length === 0) {
+      sentPushesCache.delete(pushKey);
+      return;
+    }
+
+    const promises = activeSubscriptions.map((sub) =>
+      webpush.sendNotification(sub, payload, pushOptions).catch(async (err) => {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await SubscriptionModel.deleteOne({ endpoint: sub.endpoint });
+        }
+      }),
+    );
+    await Promise.all(promises);
+    console.log(`✅ [WATCHDOG] BACKGROUND PUSH TERKIRIM: ${title}`);
+  } catch (err) {
+    sentPushesCache.delete(pushKey);
+    console.error("❌ [WATCHDOG] Gagal kirim push:", err.message);
+  }
+}
+
+// Fungsi utama yang berjalan mutlak di background server
+async function checkDatabaseForNewSignals() {
+  try {
+    const allSignals = await SignalModel.find({});
+    const running = allSignals.filter((s) => s.status === "RUNNING");
+    const closed = allSignals.filter((s) => s.status !== "RUNNING");
+
+    const currentRunningIds = running
+      .map((s) => `${s.stockCode}-${s.signalDate}`)
+      .sort()
+      .join(",");
+    const currentClosedIds = closed
+      .map((s) => `${s.stockCode}-${s.signalDate}`)
+      .sort()
+      .join(",");
+
+    // Pencegah Spam Saat Server Restart
+    if (serverLastRunningIds === null || serverLastClosedIds === null) {
+      serverLastRunningIds = currentRunningIds;
+      serverLastClosedIds = currentClosedIds;
+      console.log(
+        "🔄 [WATCHDOG] Server siap. Memantau sinyal saham di background 24/7...",
+      );
+      return;
+    }
+
+    const prevRunningArr = serverLastRunningIds
+      ? serverLastRunningIds.split(",")
+      : [];
+    const currentRunningArr = currentRunningIds
+      ? currentRunningIds.split(",")
+      : [];
+    const newRunning = currentRunningArr.filter(
+      (id) => !prevRunningArr.includes(id),
+    );
+
+    // 1. CEK SINYAL BARU
+    if (newRunning.length > 0) {
+      const newSignals = running.filter((s) =>
+        newRunning.includes(`${s.stockCode}-${s.signalDate}`),
+      );
+      const groups = { session1: [], session2: [], bsjp: [], other: [] };
+
+      newSignals.forEach((s) => {
+        if (s.signalType === "BSJP") groups.bsjp.push(s);
+        else {
+          const session = getSessionFromDate(s.signalDate);
+          if (session === 1) groups.session1.push(s);
+          else if (session === 2) groups.session2.push(s);
+          else groups.other.push(s);
+        }
+      });
+
+      if (groups.session1.length > 0)
+        triggerInternalPush(
+          "NEW SIGNALS SESI 1",
+          `${groups.session1.length} sinyal saham baru terdeteksi untuk SESI 1.`,
+        );
+      if (groups.session2.length > 0)
+        triggerInternalPush(
+          "NEW SIGNALS SESI 2",
+          `${groups.session2.length} sinyal saham baru terdeteksi untuk SESI 2.`,
+        );
+      if (groups.bsjp.length > 0)
+        triggerInternalPush(
+          "NEW SIGNALS BSJP",
+          `${groups.bsjp.length} sinyal saham baru terdeteksi untuk BSJP.`,
+        );
+      if (groups.other.length > 0)
+        triggerInternalPush(
+          "NEW SIGNALS LAINNYA",
+          `${groups.other.length} sinyal saham baru terdeteksi.`,
+        );
+    }
+
+    // 2. CEK SINYAL TAKE PROFIT
+    const prevClosedArr = serverLastClosedIds
+      ? serverLastClosedIds.split(",")
+      : [];
+    const currentClosedArr = currentClosedIds
+      ? currentClosedIds.split(",")
+      : [];
+    const newClosed = currentClosedArr.filter(
+      (id) => !prevClosedArr.includes(id),
+    );
+
+    if (newClosed.length > 0) {
+      const closedSignals = closed.filter((s) =>
+        newClosed.includes(`${s.stockCode}-${s.signalDate}`),
+      );
+
+      closedSignals.forEach((s) => {
+        if (s.status === "TP") {
+          const ret = s.returnPercent || 0;
+          const sign = ret >= 0 ? "+" : "";
+          const title = `✅ TP: ${s.stockCode}`;
+          const body = `${s.stockCode} Take Profit ${sign}${ret.toFixed(2)}%`;
+
+          triggerInternalPush(title, body); // Tembak langsung per-saham
+        }
+      });
+    }
+
+    // Update ingatan server
+    serverLastRunningIds = currentRunningIds;
+    serverLastClosedIds = currentClosedIds;
+  } catch (err) {
+    console.error("Gagal polling database internal:", err.message);
+  }
+}
+
+// Jalankan Watchdog setiap 30 detik secara abadi di server
+setInterval(checkDatabaseForNewSignals, 30000);
