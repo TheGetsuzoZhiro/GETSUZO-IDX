@@ -4305,20 +4305,13 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-// HELPER BARU: Menyelaraskan Tampilan Tombol Notifikasi berdasarkan status asli HP
 function updatePushButtonUI() {
   const pushBtn = document.getElementById("enablePushBtn");
   if (!pushBtn) return;
 
   if (Notification.permission === "granted") {
     localStorage.setItem("pushActive", "true");
-    pushBtn.style.borderColor = "#10b981";
-    pushBtn.style.borderWidth = "2px";
-    pushBtn.style.borderStyle = "solid";
-    pushBtn.style.borderRadius = "4px";
     pushBtn.title = "Notifikasi Aktif";
-    // Opsional: Anda bisa mengubah teks tombolnya jika mau
-    // pushBtn.innerText = "Notifikasi Aktif ✅";
   }
 }
 
