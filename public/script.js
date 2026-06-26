@@ -3555,13 +3555,6 @@ function checkSignalChanges(running, closed) {
 
       // Jika belum, tandai bahwa sesi ini sudah terkirim hari ini
       localStorage.setItem(fullCacheKey, "true");
-
-      // Kirim tembakan Push Notif latar belakang
-      fetch("/api/send-push", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
-      }).catch((err) => console.warn("Gagal kirim push:", err));
     }
 
     // Eksekusi per kelompok
