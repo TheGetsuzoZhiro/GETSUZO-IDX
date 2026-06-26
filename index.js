@@ -653,5 +653,8 @@ async function checkDatabaseForNewSignals() {
   }
 }
 
+// Jalankan pengecekan pertama kali saat server baru nyala
+checkDatabaseForNewSignals();
+
 // Jalankan Watchdog setiap 30 detik secara abadi di server
 setInterval(checkDatabaseForNewSignals, 30000);
