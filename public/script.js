@@ -4367,6 +4367,55 @@ async function subscribeToPush() {
   }
 }
 
+// ============================================================
+// FUNGSI SYNC SUBSCRIPTION KE SERVER (baru)
+// ============================================================
+async function syncSubscriptionWithServer() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.log('⚠️ Push tidak didukung di browser ini.');
+    return false;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    // Jika ada subscription di browser, kirim ke server
+    if (subscription) {
+      const response = await fetch('/api/save-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription)
+      });
+      if (response.ok) {
+        console.log('✅ Subscription berhasil disinkronkan ke server.');
+        localStorage.setItem('pushActive', 'true');
+        // Update tampilan tombol
+        const pushBtn = document.getElementById('enablePushBtn');
+        if (pushBtn) {
+          pushBtn.style.borderColor = '#10b981';
+          pushBtn.style.borderWidth = '2px';
+          pushBtn.style.borderStyle = 'solid';
+          pushBtn.style.borderRadius = '4px';
+          pushBtn.title = 'Notifikasi Aktif';
+        }
+        return true;
+      } else {
+        console.error('❌ Gagal sync subscription ke server.');
+        return false;
+      }
+    } else {
+      // Tidak ada subscription di browser
+      console.log('ℹ️ Tidak ada subscription di browser.');
+      localStorage.removeItem('pushActive');
+      return false;
+    }
+  } catch (err) {
+    console.error('❌ Error sync subscription:', err);
+    return false;
+  }
+}
+
 // ========== INIT ==========
 document.addEventListener("DOMContentLoaded", () => {
   loadNotifications();
@@ -4374,34 +4423,101 @@ document.addEventListener("DOMContentLoaded", () => {
   createParticles();
   initTabs();
 
-  const pushBtn = document.getElementById("enablePushBtn");
+  // ============================================================
+  // EVENT LISTENER enablePushBtn - MODIFIKASI
+  // ============================================================
+  const pushBtn = document.getElementById('enablePushBtn');
   if (pushBtn) {
-    pushBtn.addEventListener("click", async () => {
-      // Cek apakah sudah aktif
-      if (localStorage.getItem("pushActive") === "true") {
-        alert("✅ Notifikasi sudah aktif.");
+    pushBtn.addEventListener('click', async () => {
+      // Cek dukungan browser
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('❌ Browser tidak mendukung notifikasi push.');
         return;
       }
 
-      const success = await subscribeToPush();
-      if (success) {
-        localStorage.setItem("pushActive", "true");
-        alert(
-          "✅ Notifikasi push aktif! Anda akan menerima notifikasi di latar belakang.",
-        );
-        pushBtn.style.borderColor = "#10b981";
-        pushBtn.style.borderWidth = "2px";
-        pushBtn.style.borderStyle = "solid";
-        pushBtn.style.borderRadius = "4px";
-        pushBtn.title = "Notifikasi Aktif";
-      } else {
-        alert(
-          "❌ Gagal mengaktifkan notifikasi. Pastikan browser mendukung dan izin diberikan.",
-        );
+      try {
+        const registration = await navigator.serviceWorker.ready;
+
+        // Cek apakah sudah ada subscription di browser
+        let subscription = await registration.pushManager.getSubscription();
+
+        // Jika sudah ada subscription, kirim ulang ke server (update)
+        if (subscription) {
+          const response = await fetch('/api/save-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+          });
+
+          if (response.ok) {
+            localStorage.setItem('pushActive', 'true');
+            alert('✅ Notifikasi sudah aktif dan tersinkronisasi.');
+            // Update tampilan tombol
+            pushBtn.style.borderColor = '#10b981';
+            pushBtn.style.borderWidth = '2px';
+            pushBtn.style.borderStyle = 'solid';
+            pushBtn.style.borderRadius = '4px';
+            pushBtn.title = 'Notifikasi Aktif';
+            return;
+          } else {
+            alert('❌ Gagal sinkronisasi ke server. Coba lagi.');
+            return;
+          }
+        }
+
+        // Tidak ada subscription → minta izin dan buat baru
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('❌ Izin notifikasi ditolak.');
+          return;
+        }
+
+        // Buat subscription baru
+        const newSubscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+
+        // Kirim ke server
+        const response = await fetch('/api/save-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSubscription)
+        });
+
+        if (response.ok) {
+          localStorage.setItem('pushActive', 'true');
+          alert('✅ Notifikasi push berhasil diaktifkan!');
+          pushBtn.style.borderColor = '#10b981';
+          pushBtn.style.borderWidth = '2px';
+          pushBtn.style.borderStyle = 'solid';
+          pushBtn.style.borderRadius = '4px';
+          pushBtn.title = 'Notifikasi Aktif';
+          // Sembunyikan banner jika ada
+          const banner = document.getElementById('notifBanner');
+          if (banner) banner.style.display = 'none';
+        } else {
+          alert('❌ Gagal menyimpan subscription ke server.');
+        }
+      } catch (err) {
+        console.error('❌ Error:', err);
+        alert('❌ Terjadi kesalahan: ' + err.message);
       }
     });
   }
 
+  // ============================================================
+  // SINKRONISASI OTOMATIS SAAT LOAD (pakai fungsi yang sudah dibuat)
+  // ============================================================
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(() => {
+      syncSubscriptionWithServer();
+    });
+  }
+
+  // ============================================================
+  // NAVIGASI & LAINNYA (tetap sama)
+  // ============================================================
   const signalsParent = document.getElementById("signalsParent");
   const subMenu = document.getElementById("signalSubMenu");
   if (signalsParent && subMenu) {
