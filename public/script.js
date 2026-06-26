@@ -4367,9 +4367,6 @@ async function subscribeToPush() {
   }
 }
 
-// ============================================================
-// FUNGSI SYNC SUBSCRIPTION KE SERVER (baru)
-// ============================================================
 async function syncSubscriptionWithServer() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.log('⚠️ Push tidak didukung di browser ini.');
@@ -4380,7 +4377,6 @@ async function syncSubscriptionWithServer() {
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
 
-    // Jika ada subscription di browser, kirim ke server
     if (subscription) {
       const response = await fetch('/api/save-subscription', {
         method: 'POST',
@@ -4390,29 +4386,43 @@ async function syncSubscriptionWithServer() {
       if (response.ok) {
         console.log('✅ Subscription berhasil disinkronkan ke server.');
         localStorage.setItem('pushActive', 'true');
-        // Update tampilan tombol
-        const pushBtn = document.getElementById('enablePushBtn');
-        if (pushBtn) {
-          pushBtn.style.borderColor = '#10b981';
-          pushBtn.style.borderWidth = '2px';
-          pushBtn.style.borderStyle = 'solid';
-          pushBtn.style.borderRadius = '4px';
-          pushBtn.title = 'Notifikasi Aktif';
-        }
+        updatePushButtonState(true);
         return true;
       } else {
         console.error('❌ Gagal sync subscription ke server.');
+        localStorage.removeItem('pushActive');
+        updatePushButtonState(false);
         return false;
       }
     } else {
-      // Tidak ada subscription di browser
       console.log('ℹ️ Tidak ada subscription di browser.');
       localStorage.removeItem('pushActive');
+      updatePushButtonState(false);
       return false;
     }
   } catch (err) {
     console.error('❌ Error sync subscription:', err);
+    localStorage.removeItem('pushActive');
+    updatePushButtonState(false);
     return false;
+  }
+}
+
+function updatePushButtonState(active) {
+  const pushBtn = document.getElementById('enablePushBtn');
+  if (!pushBtn) return;
+  if (active) {
+    pushBtn.style.borderColor = '#10b981';
+    pushBtn.style.borderWidth = '2px';
+    pushBtn.style.borderStyle = 'solid';
+    pushBtn.style.borderRadius = '4px';
+    pushBtn.title = 'Notifikasi Aktif';
+  } else {
+    pushBtn.style.borderColor = '';
+    pushBtn.style.borderWidth = '';
+    pushBtn.style.borderStyle = '';
+    pushBtn.style.borderRadius = '';
+    pushBtn.title = 'Aktifkan Notifikasi';
   }
 }
 
@@ -4423,97 +4433,91 @@ document.addEventListener("DOMContentLoaded", () => {
   createParticles();
   initTabs();
 
-  // ============================================================
-  // EVENT LISTENER enablePushBtn - MODIFIKASI
-  // ============================================================
   const pushBtn = document.getElementById('enablePushBtn');
-  if (pushBtn) {
-    pushBtn.addEventListener('click', async () => {
-      // Cek dukungan browser
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        alert('❌ Browser tidak mendukung notifikasi push.');
-        return;
-      }
+if (pushBtn) {
+  pushBtn.addEventListener('click', async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('❌ Browser tidak mendukung notifikasi push.');
+      return;
+    }
 
-      try {
-        const registration = await navigator.serviceWorker.ready;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
 
-        // Cek apakah sudah ada subscription di browser
-        let subscription = await registration.pushManager.getSubscription();
-
-        // Jika sudah ada subscription, kirim ulang ke server (update)
-        if (subscription) {
-          const response = await fetch('/api/save-subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-          });
-
-          if (response.ok) {
-            localStorage.setItem('pushActive', 'true');
-            alert('✅ Notifikasi sudah aktif dan tersinkronisasi.');
-            // Update tampilan tombol
-            pushBtn.style.borderColor = '#10b981';
-            pushBtn.style.borderWidth = '2px';
-            pushBtn.style.borderStyle = 'solid';
-            pushBtn.style.borderRadius = '4px';
-            pushBtn.title = 'Notifikasi Aktif';
-            return;
-          } else {
-            alert('❌ Gagal sinkronisasi ke server. Coba lagi.');
-            return;
-          }
-        }
-
-        // Tidak ada subscription → minta izin dan buat baru
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          alert('❌ Izin notifikasi ditolak.');
-          return;
-        }
-
-        // Buat subscription baru
-        const newSubscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
-
-        // Kirim ke server
+      if (subscription) {
         const response = await fetch('/api/save-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newSubscription)
+          body: JSON.stringify(subscription)
         });
 
         if (response.ok) {
           localStorage.setItem('pushActive', 'true');
-          alert('✅ Notifikasi push berhasil diaktifkan!');
-          pushBtn.style.borderColor = '#10b981';
-          pushBtn.style.borderWidth = '2px';
-          pushBtn.style.borderStyle = 'solid';
-          pushBtn.style.borderRadius = '4px';
-          pushBtn.title = 'Notifikasi Aktif';
-          // Sembunyikan banner jika ada
+          updatePushButtonState(true);
+          alert('✅ Notifikasi sudah aktif dan tersinkronisasi.');
+          // Sembunyikan banner
           const banner = document.getElementById('notifBanner');
           if (banner) banner.style.display = 'none';
+          return;
         } else {
-          alert('❌ Gagal menyimpan subscription ke server.');
+          // Gagal sync, reset status
+          localStorage.removeItem('pushActive');
+          updatePushButtonState(false);
+          alert('❌ Gagal sinkronisasi ke server. Silakan coba lagi.');
+          return;
         }
-      } catch (err) {
-        console.error('❌ Error:', err);
-        alert('❌ Terjadi kesalahan: ' + err.message);
       }
-    });
-  }
 
-  // ============================================================
-  // SINKRONISASI OTOMATIS SAAT LOAD (pakai fungsi yang sudah dibuat)
-  // ============================================================
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then(() => {
-      syncSubscriptionWithServer();
-    });
-  }
+      // Tidak ada subscription → minta izin dan buat baru
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('❌ Izin notifikasi ditolak.');
+        return;
+      }
+
+      const newSubscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+
+      const response = await fetch('/api/save-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSubscription)
+      });
+
+      if (response.ok) {
+        localStorage.setItem('pushActive', 'true');
+        updatePushButtonState(true);
+        alert('✅ Notifikasi push berhasil diaktifkan!');
+        const banner = document.getElementById('notifBanner');
+        if (banner) banner.style.display = 'none';
+      } else {
+        localStorage.removeItem('pushActive');
+        updatePushButtonState(false);
+        alert('❌ Gagal menyimpan subscription ke server.');
+      }
+    } catch (err) {
+      console.error('❌ Error:', err);
+      alert('❌ Terjadi kesalahan: ' + err.message);
+    }
+  });
+}
+
+// ============================================================
+// AUTO-SYNC SAAT LOAD (diperbaiki)
+// ============================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.ready.then(async () => {
+    const success = await syncSubscriptionWithServer();
+    if (!success) {
+      // Jika gagal, pastikan status tombol tidak menipu
+      localStorage.removeItem('pushActive');
+      updatePushButtonState(false);
+    }
+  });
+}
 
   // ============================================================
   // NAVIGASI & LAINNYA (tetap sama)
