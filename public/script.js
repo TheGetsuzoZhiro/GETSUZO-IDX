@@ -3602,12 +3602,6 @@ function checkSignalChanges(running, closed) {
 
         const title = `✅ TP: ${s.stockCode}`;
         const body = `${s.stockCode} Take Profit ${sign}${ret.toFixed(2)}% (Entry ${fmtPriceNoRp(entry)} ➔ Exit ${fmtPriceNoRp(exit)})`;
-
-        fetch("/api/send-push", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, body }),
-        }).catch((err) => console.warn("Gagal kirim push TP:", err));
       }
       // ❌ SL TIDAK DIKIRIM PUSH SAMA SEKALI
     });
