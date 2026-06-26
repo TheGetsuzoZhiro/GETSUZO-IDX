@@ -76,14 +76,7 @@ function getUnreadCount() {
 function updateNotifBadge() {
   const badge = document.querySelector(".notif-badge");
   if (!badge) return;
-  const count = getUnreadCount();
-  if (count > 0) {
-    badge.classList.add("active");
-    badge.textContent = count > 9 ? "9+" : count;
-  } else {
-    badge.classList.remove("active");
-    badge.textContent = "";
-  }
+  badge.style.display = "none";
 }
 
 function markAllAsRead() {
