@@ -258,16 +258,18 @@ app.get("/api/stock-info/:symbol", async (req, res) => {
       timeout: 10000,
     });
     const meta = response.data?.chart?.result?.[0]?.meta;
-    const longName = meta?.longName || meta?.symbol || symbol;
-    const logoUrl = `https://assets.parqet.com/logos/symbol/${symbol}.png`;
-    const result = { symbol, longName, logoUrl };
+    // 🔁 Ambil shortName (semua emiten punya), fallback ke symbol
+    const longName = meta?.shortName || meta?.symbol || symbol;
+    // ❌ LogoUrl dihapus / tidak dikirim
+    const result = { symbol, longName, logoUrl: null };
     infoCache.set(symbol, { data: result, timestamp: Date.now() });
     res.json(result);
   } catch (error) {
+    // Fallback jika gagal
     res.json({
       symbol,
       longName: symbol,
-      logoUrl: `https://assets.parqet.com/logos/symbol/${symbol}.png`,
+      logoUrl: null,
     });
   }
 });
