@@ -1654,9 +1654,9 @@ async function renderSignalDetailToContainer(signal, container, onBack) {
     confIcon = `<i class="fa-regular fa-circle" style="color:#f97316; font-size:14px; margin-right:4px;"></i>`;
   } else {
     confColor = "#ef4444";
-    confLabel = "SKIP";
-    confTier = "Skip";
-    confDesc = "Tidak memenuhi standar minimum — difilter otomatis.";
+    confLabel = "RISK";
+    confTier = "Risk";
+    confDesc = "Tidak memenuhi standar minimum — difilter otomatis oleh engine.";
     confIcon = `<i class="fa-regular fa-circle-xmark" style="color:#ef4444; font-size:14px; margin-right:4px;"></i>`;
   }
 
@@ -2637,9 +2637,9 @@ async function showSignalDetail(index) {
     confIcon = `<i class="fa-regular fa-circle" style="color:#f97316; font-size:14px; margin-right:4px;"></i>`;
   } else {
     confColor = "#ef4444";
-    confLabel = "SKIP";
-    confTier = "Skip";
-    confDesc = "Tidak memenuhi standar minimum — difilter otomatis.";
+    confLabel = "RISK";
+    confTier = "Risk";
+    confDesc = "Tidak memenuhi standar minimum — difilter otomatis oleh engine.";
     confIcon = `<i class="fa-regular fa-circle-xmark" style="color:#ef4444; font-size:14px; margin-right:4px;"></i>`;
   }
 
