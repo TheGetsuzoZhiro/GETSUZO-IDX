@@ -347,7 +347,6 @@ app.get("/api/market-status", async (req, res) => {
   });
 });
 
-// === ROUTE YANG DIUBAH: MENYIMPAN SUBSCRIPTION KE MONGODB ===
 app.post("/api/save-subscription", async (req, res) => {
   const subscription = req.body;
   if (!subscription || !subscription.endpoint) {
@@ -359,7 +358,7 @@ app.post("/api/save-subscription", async (req, res) => {
     await SubscriptionModel.findOneAndUpdate(
       { endpoint: subscription.endpoint },
       subscription,
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' }, // <-- PERUBAHAN di sini
     );
 
     console.log(`✅ Subscription berhasil disimpan permanen ke MongoDB.`);
